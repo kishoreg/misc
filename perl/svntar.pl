@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 # 
 # When executed from a subversion repository, given a changelist name, creates a
 # tgz archive of the changelist. Kind of like git stash
