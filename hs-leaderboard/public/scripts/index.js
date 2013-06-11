@@ -18,15 +18,16 @@ $(document).ready(function() {
       running = false;
     }
     else {
-      // Don't start unless there's a name
-      if ($("#name").val() == '') {
-        $("#name").val('ASS');
-      }
-      // Ferris thinks this will be funny to fuck with Naveen
-      else if ($("#name").val() == 'NAV')
-      {
-        $("#name").val('FU');
-      }
+      // Inappropriate...
+      /*// Don't start unless there's a name*/
+      /*if ($("#name").val() == '') {*/
+      /*$("#name").val('ASS');*/
+      /*}*/
+      /*// Ferris thinks this will be funny to fuck with Naveen*/
+      /*else if ($("#name").val() == 'NAV')*/
+      /*{*/
+      /*$("#name").val('FU');*/
+      /*}*/
       
       // Record starting time
       var startTime = new Date();
