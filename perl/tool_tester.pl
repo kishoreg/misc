@@ -5,27 +5,36 @@
 #
 use strict;
 use Algorithm::Combinatorics qw( combinations );
-use Getopt::Long;
-use Data::Dumper;
 use Carp;
+use Getopt::Long;
 use JSON;
+use Pod::Usage;
 
 my $exec;             # The command to execute
 my $params_spec_json; # A JSON object describing the parameters for that command
 my $params_file;      # A file containing params JSON instead
 my $dry_run;          # If true, actually execute commands
 my $prompt;           # If true, prompt before executing next command
+my $help;             # If true, print a help message and exit
 
 GetOptions(
-  "exec=s"   => \$exec,
-  "params=s" => \$params_spec_json,
+  "exec=s"       => \$exec,
+  "params=s"     => \$params_spec_json,
   "paramsFile=s" => \$params_file,
-  "dryRun"   => \$dry_run,
-  "prompt"   => \$prompt,
+  "dryRun"       => \$dry_run,
+  "prompt"       => \$prompt,
+  "help"         => \$help,
 );
 
-die "Can only provide either --params or --paramsFile"
-  if $params && $params_file;
+if ($help)
+{
+  pod2usage(1);
+}
+
+# Validate
+die "--exec required" if !$exec;
+die "--params or --paramsFile required" if !$params_spec_json && !$params_file;
+die "Can only provide either --params or --paramsFile" if $params_spec_json && $params_file;
 
 # Parse the param specification
 if ($params_file)
@@ -39,9 +48,8 @@ my $params_spec = from_json($params_spec_json);
 # Extract all of the params
 my @params = keys %{ $params_spec };
 
-my $i = 0;
-
 # For each of the possible k's in nCk
+my $i = 0;
 for my $k (0 .. scalar(@params))
 {
   # Compute the nCk different combinations of parameters
@@ -67,8 +75,8 @@ for my $k (0 .. scalar(@params))
         elsif ($type eq 'STRING')
         {
           my $rand_str = "";
-          $rand_str .= chr(int(rand(26)) + 65) for (1 .. 30);
-          $invocation{$param} = $rand_str;
+          $rand_str .= chr(int(rand(ord('z') - ord('a'))) + ord('a')) for (1 .. 30);
+          $invocation{$param} = $rand_str;  # n.b. $rand_str =~ /[a-z]{30}/
         }
         elsif ($type eq 'BOOLEAN')
         {
@@ -110,7 +118,100 @@ for my $k (0 .. scalar(@params))
     if ($prompt)
     {
       print "Hit ENTER to continue";
-      my $dummy = <STDIN>;
+      <STDIN>;
     }
   }
 }
+
+=head1 NAME
+
+tool_tester.pl - Utility to test different invocations of a tool
+
+=head1 SYNOPSIS
+
+  ./tool_tester.pl --exec ./my_other_tool.pl --params '{"--opt1": {"value": "hello"}, "--opt2": {"type": "STRING"}'
+
+  ./tool_tester.pl --exec ./my_other_tool.pl --paramsFile /path/to/params.json
+
+=head1 DESCRIPTION
+
+This tool effectively shoots you in the foot in many different ways, with the
+hope that you'll be able to recover.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--exec>
+
+The command to execute
+
+=item B<--params>
+
+JSON-encoded configuration object (see `perldoc tool_tester.pl`)
+
+=item B<--paramsFile>
+
+File path to JSON-encoded configuration object (see `perldoc tool_tester.pl`)
+
+=item B<--dryRun>
+
+Do not actually perform the generated commands
+
+=item B<--prompt>
+
+Wait for user input to execute the next command
+
+=item B<--help>
+
+Print this help message
+
+=back
+
+=head1 CONFIGURATION
+
+A JSON-encoded configuration file (via "--params" or "--paramsFile") must be supplied. E.g.:
+
+  {
+    "--zkAddr": {
+      "value": "localhost:2181"
+    },
+    "--clusterName": {
+      "value": "ESPRESSO_CLUSTER"
+    },
+    "--restore": {
+      "type": "BOOLEAN"
+    },
+    "--catchup": {
+      "type": "BOOLEAN"
+    },
+    "--dbPartitions": {
+      "value": "{\"mydb\":[0,1]}"
+    },
+    "--instanceName": {
+      "value": "localhost_12930"
+    }
+  }
+
+Keys in this object correspond to the options for your tool. 
+
+Values in this object correspond to what arguments should be supplied to those
+options. 
+
+If the value object contains a key "value", then that specific string will be
+used as the argument. If it contains a key "type", then an appropriate random
+value will be generated.
+
+Allowed "type"s are ["INT", "STRING", "BOOLEAN"].
+
+=head1 DEPENDENCIES
+
+=over 4
+
+=item Algorithm::Combinatorics
+
+=item JSON
+
+=back
+
+=cut
