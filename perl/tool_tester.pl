@@ -1,7 +1,6 @@
 #!/usr/bin/perl -w
 #
 # A tool to generate various invocations of other tools
-# author: Greg Brandt (gbrandt@linkedin.com)
 #
 use strict;
 use Algorithm::Combinatorics qw( combinations );
@@ -129,9 +128,9 @@ tool_tester.pl - Utility to test different invocations of a tool
 
 =head1 SYNOPSIS
 
-  ./tool_tester.pl --exec ./my_other_tool.pl --params '{"--opt1": {"value": "hello"}, "--opt2": {"type": "STRING"}'
+  ./tool_tester.pl --exec ./my_other_tool --params '{"--opt1": {"value": "hello"}, "--opt2": {"type": "STRING"}'
 
-  ./tool_tester.pl --exec ./my_other_tool.pl --paramsFile /path/to/params.json
+  ./tool_tester.pl --exec 'java -jar someVerboselyNamedImplPkg-SNAPSHOT.jar' --paramsFile /path/to/params.json
 
 =head1 DESCRIPTION
 
@@ -148,11 +147,11 @@ The command to execute
 
 =item B<--params>
 
-JSON-encoded configuration object (see `perldoc tool_tester.pl`)
+JSON-encoded configuration object (see: perldoc tool_tester.pl)
 
 =item B<--paramsFile>
 
-File path to JSON-encoded configuration object (see `perldoc tool_tester.pl`)
+File path to JSON-encoded configuration object (see: perldoc tool_tester.pl)
 
 =item B<--dryRun>
 
@@ -213,5 +212,9 @@ Allowed "type"s are ["INT", "STRING", "BOOLEAN"].
 =item JSON
 
 =back
+
+=head1 AUTHOR
+
+Greg Brandt (gbrandt@linkedin.com)
 
 =cut
