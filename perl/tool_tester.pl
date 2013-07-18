@@ -25,15 +25,15 @@ GetOptions(
   "help"         => \$help,
 );
 
-if ($help)
-{
-  pod2usage(1);
-}
-
 # Validate
-die "--exec required" if !$exec;
-die "--params or --paramsFile required" if !$params_spec_json && !$params_file;
-die "Can only provide either --params or --paramsFile" if $params_spec_json && $params_file;
+pod2usage(1)
+  if $help;
+pod2usage(-msg => "--exec required", -exitval => 2)
+  if !$exec;
+pod2usage(-msg => "--params or --paramsFile required", -exitval => 3)
+  if !$params_spec_json && !$params_file;
+pod2usage(-msg => "Can only provide either --params or --paramsFile", -exitval => 4)
+  if $params_spec_json && $params_file;
 
 # Parse the param specification
 if ($params_file)
