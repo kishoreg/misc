@@ -215,6 +215,6 @@ Allowed "type"s are ["INT", "STRING", "BOOLEAN"].
 
 =head1 AUTHOR
 
-Greg Brandt (gbrandt@linkedin.com)
+Greg Brandt (brandt.greg@gmail.com)
 
 =cut
