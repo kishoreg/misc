@@ -9,7 +9,6 @@ import com.google.code.or.common.glossary.Row;
 
 // If want to release this, copy / paste these dependencies in
 import edu.washington.folgers.tuple.Pair;
-import edu.washington.folgers.tuple.Triple;
 import edu.washington.folgers.util.BinlogUtils;
 
 import org.apache.commons.cli.CommandLine;
@@ -196,7 +195,7 @@ public class MySQLBinlogReplicator
       Pair<String, Integer> oldestBinlog = checkpoints.get(0);
       _openReplicator.setBinlogFileName(oldestBinlog.first);
       _openReplicator.setBinlogPosition(oldestBinlog.second);
-      LOG.info(String.format("Starting from lowest checkpoint %s,%s", _master.serverId, oldestBinlog.first, oldestBinlog.second));
+      LOG.info(String.format("Starting from lowest checkpoint %s,%s", oldestBinlog.first, oldestBinlog.second));
     }
     _consumerThread.start();
     _openReplicator.start();
@@ -210,6 +209,8 @@ public class MySQLBinlogReplicator
    */
   public void stop() throws Exception
   {
+    if (_isShutdown.getAndSet(true))
+      return;
     _openReplicator.stop(OR_STOP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     _consumerThread.join();
   }
@@ -601,7 +602,7 @@ public class MySQLBinlogReplicator
             stmt.setLong(idx, write.nextBinlogOffset);
             stmt.execute();
 
-            LOG.info(String.format("Generated checkpoint on MASTER %s,%s,%s", _master.serverId, binlogFileName, write.nextBinlogOffset));
+            LOG.info(String.format("Generated checkpoint on MASTER %s,%s", binlogFileName, write.nextBinlogOffset));
           }
           catch (SQLException e)
           {
@@ -623,10 +624,6 @@ public class MySQLBinlogReplicator
       }
     }
 
-    // A map of (tableId, operation) to the prepared statement for that operation
-    private final ConcurrentMap<Triple<Operation, Long, Integer>, PreparedStatement> _statements
-            = new ConcurrentHashMap<Triple<Operation, Long, Integer>, PreparedStatement>();
-
     /**
      * Returns a prepared statement which can be executed to perform the actual replication.
      *
@@ -639,13 +636,6 @@ public class MySQLBinlogReplicator
      */
     private PreparedStatement statementFor(Connection conn, WriteEvent write, int serverId) throws SQLException
     {
-      PreparedStatement fromCache = _statements.get(Triple.make(write.operation, write.tableId, serverId));
-      if (fromCache != null)
-      {
-        fromCache.clearParameters();
-        return fromCache;
-      }
-
       SchemaEvent schema = _schemas.get(write.tableId);
       String dbName = schema.dbName;
       String tableName = schema.tableName;
@@ -676,7 +666,6 @@ public class MySQLBinlogReplicator
             sb.append(", `").append(columns.get(0).first).append("`=values(`").append(columns.get(0).first).append("`)");
 
           stmt = conn.prepareStatement(sb.toString());
-          _statements.putIfAbsent(Triple.make(write.operation, write.tableId, serverId), stmt);
           return stmt;
 
         case DELETE:
@@ -688,7 +677,6 @@ public class MySQLBinlogReplicator
             sb.append(" AND `").append(columns.get(i).first).append("` = ?");
 
           stmt = conn.prepareStatement(sb.toString());
-          _statements.putIfAbsent(Triple.make(write.operation, write.tableId, serverId), stmt);
           return stmt;
 
         default:
@@ -842,7 +830,7 @@ public class MySQLBinlogReplicator
               .setPort(slaveNode.get("port").asInt())
               .setUser(slaveNode.get("user").asText())
               .setPassword(slaveNode.get("password").asText());
-      slaveHostPortToConfig.put(slaveNode.get("host") + ":" + slaveNode.get("port"), slave);
+      slaveHostPortToConfig.put(slaveNode.get("host").asText() + ":" + slaveNode.get("port").asText(), slave);
     }
 
     Map<String, List<MySQLConfig>> dbToSlaves = new HashMap<String, List<MySQLConfig>>();
