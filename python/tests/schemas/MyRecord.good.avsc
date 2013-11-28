@@ -1,0 +1,49 @@
+{
+  "name": "MyRecord",
+  "type": "record",
+  "fields": [
+    {
+      "name": "fieldWithoutDefaultValue",
+      "type": "long"
+    },
+    {
+      "name": "properField2",
+      "doc": "The old one w/ same alias was changed",
+      "aliases": ["f2"],
+      "type": "int",
+      "default": 0
+    },
+    {
+      "name": "enumField",
+      "doc": "Symbols were reordered, default value changed",
+      "type": {
+        "name": "EnumField",
+        "type": "enum",
+        "symbols": ["C", "B", "A"]
+      },
+      "default": "C"
+    },
+    {
+      "name": "unionField",
+      "doc": "Types were reordered, default value changed",
+      "type": ["string", "null"],
+      "default": "hello"
+    },
+    {
+      "name": "fixedField",
+      "type": {
+        "type": "fixed",
+        "size": 16,
+        "name": "md5"
+      }
+    },
+    {
+      "name": "arrayField",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    }
+  ]
+}

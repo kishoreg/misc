@@ -1,0 +1,54 @@
+{
+  "name": "MyRecord",
+  "type": "record",
+  "fields": [
+    {
+      "name": "fieldWithoutDefaultValue",
+      "type": "long"
+    },
+    {
+      "name": "properField",
+      "aliases": ["f1"],
+      "type": "long",
+      "default": 0
+    },
+    {
+      "name": "enumField",
+      "type": {
+        "name": "EnumField",
+        "type": "enum",
+        "symbols": ["A", "B", "C"]
+      },
+      "default": "A"
+    },
+    {
+      "name": "unionField",
+      "type": ["string"],
+      "default": ""
+    },
+    {
+      "name": "arrayField",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    },
+    {
+      "name": "mapField",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {}
+    },
+    {
+      "name": "fixedField",
+      "type": {
+        "type": "fixed",
+        "size": 16,
+        "name": "md5"
+      }
+    }
+  ]
+}
