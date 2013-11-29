@@ -150,11 +150,11 @@ Dealing with Forwards- and Backwards-compatibility:
 
   Realistically though, schemas are evolved sequentially in time. So if we
   consider a linear topology of monoids and just create a morphism to move from
-  an older monoid to a newer monoid, we simplify things a lot. This requires
-  O(n) transformations, but hopefully n is small if we're constructing our
-  schemas right. It's also likely that the number of transformations we need
-  converges to zero as the system settles into the new schema and old records
-  get lazily upconverted via new writes.
+  an older monoid to a newer monoid and vice versa, we simplify things a lot.
+  This requires O(n) transformations, but hopefully n is small if we're
+  constructing our schemas right. It's also likely that the number of
+  transformations we need converges to zero as the system settles into the new
+  schema and old records get lazily upconverted via new writes.
 
 author: Greg Brandt (gbrandt@linkedin.com)
 
@@ -176,13 +176,13 @@ def check(schemas):
 
 # Copies A, then superimposes B on the copy
 def _combine_record(A, B):
-  SS = schema.parse(json.dumps(A.to_json())) # there must be a better way...
+  ss = schema.parse(json.dumps(A.to_json())) # there must be a better way...
   a_field_names = map(lambda f: f.name, A.fields)
   b_field_names = map(lambda f: f.name, B.fields)
   for b_field_name in b_field_names:
     if not b_field_name in a_field_names:
-      SS.fields.append(B.fields_dict[b_field_name])
-  return SS
+      ss.fields.append(B.fields_dict[b_field_name])
+  return ss
 
 # Outputs the field name trace in dot format
 def _dump_trace(trace):
