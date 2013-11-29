@@ -3,6 +3,8 @@ Synopsis
 
 A collection of random code bits.
 
+Execute `nosetests` from this directory to make sure I didn't do anything wrong.
+
 Avro validator
 --------------
 
