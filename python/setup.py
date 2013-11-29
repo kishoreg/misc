@@ -13,7 +13,7 @@ config = {
   'author_email': 'brandt.greg@gmail.com',
   'version': '0.0.1',
   'install_requires': ['nose'],
-  'packages': ['gavro'],
+  'packages': ['gtools'],
   'scripts': [],
   'name': 'gtools'
 }
