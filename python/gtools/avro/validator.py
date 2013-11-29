@@ -343,5 +343,6 @@ def _check_primitive(A, B, trace):
 # Main
 if __name__ == '__main__':
   import sys
-  schemas = map(lambda x: schema.parse(open(x).read()), sys.argv[1:])
-  check(schemas)
+  if len(sys.argv) > 1:
+    schemas = map(lambda x: schema.parse(open(x).read()), sys.argv[1:])
+    check(schemas)
