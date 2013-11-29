@@ -8,7 +8,7 @@ author: Greg Brandt (brandt.greg@gmail.com)
 """
 from avro import schema
 from avro.io import DatumReader, DatumWriter, BinaryEncoder, BinaryDecoder
-from gtools.avro import validator
+from tools.avro import validator
 import StringIO
 
 BASE_DIR = './tests/schemas'

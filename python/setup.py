@@ -13,9 +13,9 @@ config = {
   'author_email': 'brandt.greg@gmail.com',
   'version': '0.0.1',
   'install_requires': ['nose'],
-  'packages': ['gtools'],
+  'packages': ['tools'],
   'scripts': [],
-  'name': 'gtools'
+  'name': 'tools'
 }
 
 setup(**config)
