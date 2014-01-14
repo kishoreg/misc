@@ -17,16 +17,12 @@ public class Server
 
   public static void main(String[] args)
   {
+    Utils.configureConsole();
+
     // Init
 
     String customPort = System.getProperty("port");
     int port = customPort == null ? DEFAULT_PORT : Integer.parseInt(customPort);
-
-    ConsoleAppender console = new ConsoleAppender();
-    PatternLayout layout = new PatternLayout("%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n");
-    console.setLayout(layout);
-    console.activateOptions();
-    Logger.getRootLogger().addAppender(console);
 
     // Configure and start server
 
