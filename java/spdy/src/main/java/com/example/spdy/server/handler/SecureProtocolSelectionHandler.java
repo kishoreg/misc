@@ -1,5 +1,6 @@
-package com.example.spdy.server;
+package com.example.spdy.server.handler;
 
+import com.example.spdy.server.SimpleServerProvider;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.channel.*;
@@ -9,9 +10,9 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import org.jboss.netty.handler.codec.spdy.*;
 import org.jboss.netty.handler.ssl.SslHandler;
 
-public class ProtocolSelectionHandler implements ChannelUpstreamHandler
+public class SecureProtocolSelectionHandler implements ChannelUpstreamHandler
 {
-  private static final Logger LOG = Logger.getLogger(ProtocolSelectionHandler.class);
+  private static final Logger LOG = Logger.getLogger(SecureProtocolSelectionHandler.class);
 
   @Override
   public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e) throws Exception

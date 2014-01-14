@@ -1,4 +1,4 @@
-package com.example.spdy.server;
+package com.example.spdy.server.handler;
 
 import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffers;

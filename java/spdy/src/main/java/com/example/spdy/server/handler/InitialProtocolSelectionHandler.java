@@ -1,5 +1,6 @@
-package com.example.spdy.server;
+package com.example.spdy.server.handler;
 
+import com.example.spdy.server.SimpleServerProvider;
 import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -14,7 +15,7 @@ import org.jboss.netty.handler.ssl.SslHandler;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
-public class SslSelectionHandler extends SimpleChannelUpstreamHandler
+public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandler
 {
   private static final int MAX_HTTP_METHOD_LENGTH = 7;
 
@@ -32,7 +33,7 @@ public class SslSelectionHandler extends SimpleChannelUpstreamHandler
 
   private final SSLContext _context;
 
-  public SslSelectionHandler(SSLContext context)
+  public InitialProtocolSelectionHandler(SSLContext context)
   {
     _context = context;
   }
@@ -58,7 +59,7 @@ public class SslSelectionHandler extends SimpleChannelUpstreamHandler
       NextProtoNego.debug = true;
 
       pipeline.addLast("sslHandler", new SslHandler(engine));
-      pipeline.addLast("protocolSelectionHandler", new ProtocolSelectionHandler());
+      pipeline.addLast("protocolSelectionHandler", new SecureProtocolSelectionHandler());
     }
 
     pipeline.remove(this);
