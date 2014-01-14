@@ -1,4 +1,4 @@
-package com.example.spdy;
+package com.example.spdy.server;
 
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.npn.NextProtoNego;

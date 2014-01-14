@@ -1,15 +1,11 @@
-package com.example.spdy;
+package com.example.spdy.server;
 
-import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.handler.ssl.SslHandler;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
 import java.security.KeyStore;
 
 public class ServerPipelineFactory implements ChannelPipelineFactory
@@ -37,16 +33,7 @@ public class ServerPipelineFactory implements ChannelPipelineFactory
   public ChannelPipeline getPipeline() throws Exception
   {
     ChannelPipeline pipeline = Channels.pipeline();
-
-    SSLEngine engine = _context.createSSLEngine();
-    engine.setUseClientMode(false);
-
-    NextProtoNego.put(engine, new SimpleServerProvider());
-    NextProtoNego.debug = true;
-
-    pipeline.addLast("sslHandler", new SslHandler(engine));
-    pipeline.addLast("protocolSelectionHandler", new ProtocolSelectionHandler());
-
+    pipeline.addLast("sslSelectionHandler", new SslSelectionHandler(_context));
     return pipeline;
   }
 }
