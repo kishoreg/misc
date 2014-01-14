@@ -1,6 +1,5 @@
 package com.example.spdy.server;
 
-import com.example.spdy.server.handler.InitialProtocolSelectionHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;

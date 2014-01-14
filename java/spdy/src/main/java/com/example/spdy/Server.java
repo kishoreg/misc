@@ -1,9 +1,8 @@
 package com.example.spdy;
 
 import com.example.spdy.server.ServerPipelineFactory;
-import org.apache.log4j.ConsoleAppender;
+import com.example.spdy.utils.MiscUtils;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
@@ -17,7 +16,7 @@ public class Server
 
   public static void main(String[] args)
   {
-    Utils.configureConsole();
+    MiscUtils.configureConsole();
 
     // Init
 

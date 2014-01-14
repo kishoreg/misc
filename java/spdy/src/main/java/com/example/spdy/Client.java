@@ -1,26 +1,16 @@
 package com.example.spdy;
 
-import com.example.spdy.client.NaiveTrustManager;
-import com.example.spdy.client.SimpleClientProvider;
-import com.example.spdy.client.handler.HandshakeHandler;
-import com.example.spdy.client.handler.SecureClientProtocolSelectionHandler;
+import com.example.spdy.client.ClientPipelineFactory;
+import com.example.spdy.utils.NaiveTrustManager;
+import com.example.spdy.utils.MiscUtils;
 import org.apache.log4j.Logger;
-import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.*;
-import org.jboss.netty.handler.codec.spdy.SpdyFrameCodec;
-import org.jboss.netty.handler.codec.spdy.SpdyHttpCodec;
-import org.jboss.netty.handler.codec.spdy.SpdySessionHandler;
-import org.jboss.netty.handler.codec.spdy.SpdyVersion;
-import org.jboss.netty.handler.ssl.SslHandler;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 import java.net.InetSocketAddress;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
 public class Client
@@ -29,9 +19,7 @@ public class Client
 
   public static void main(String[] args) throws Exception
   {
-    Utils.configureConsole();
-
-    final CountDownLatch finished = new CountDownLatch(1);
+    MiscUtils.configureConsole();
 
     ClientBootstrap bootstrap = new ClientBootstrap(
             new NioClientSocketChannelFactory(
@@ -41,25 +29,7 @@ public class Client
     final SSLContext sslContext = SSLContext.getInstance("TLS");
     sslContext.init(null, new TrustManager[] { NaiveTrustManager.getInstance() }, null);
 
-    bootstrap.setPipelineFactory(new ChannelPipelineFactory()
-    {
-      @Override
-      public ChannelPipeline getPipeline() throws Exception
-      {
-        ChannelPipeline pipeline = Channels.pipeline();
-
-        SSLEngine engine = sslContext.createSSLEngine();
-        engine.setUseClientMode(true);
-        NextProtoNego.put(engine, new SimpleClientProvider());
-        NextProtoNego.debug = true;
-
-        pipeline.addLast("ssl", new SslHandler(engine));
-        pipeline.addLast("handshakeHandler", new HandshakeHandler());
-        pipeline.addLast("negotiationHandler", new SecureClientProtocolSelectionHandler());
-
-        return pipeline;
-      }
-    });
+    bootstrap.setPipelineFactory(new ClientPipelineFactory());
 
     bootstrap.connect(new InetSocketAddress(9000)).addListener(new ChannelFutureListener()
     {
@@ -76,8 +46,5 @@ public class Client
         }
       }
     });
-
-    finished.await();
-    bootstrap.releaseExternalResources();
   }
 }

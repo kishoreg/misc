@@ -1,4 +1,4 @@
-package com.example.spdy.client;
+package com.example.spdy.utils;
 
 import javax.net.ssl.X509TrustManager;
 import java.security.cert.CertificateException;

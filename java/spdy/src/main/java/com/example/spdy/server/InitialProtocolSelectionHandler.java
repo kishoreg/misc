@@ -1,6 +1,6 @@
-package com.example.spdy.server.handler;
+package com.example.spdy.server;
 
-import com.example.spdy.server.SimpleServerProvider;
+import com.example.spdy.npn.SimpleServerProvider;
 import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelHandlerContext;

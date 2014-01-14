@@ -1,10 +1,10 @@
-package com.example.spdy;
+package com.example.spdy.utils;
 
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 
-public class Utils
+public class MiscUtils
 {
   public static void configureConsole()
   {

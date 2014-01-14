@@ -1,4 +1,4 @@
-package com.example.spdy.client;
+package com.example.spdy.npn;
 
 import org.eclipse.jetty.npn.NextProtoNego;
 

@@ -1,6 +1,6 @@
-package com.example.spdy.client.handler;
+package com.example.spdy.client;
 
-import com.example.spdy.client.SimpleClientProvider;
+import com.example.spdy.npn.SimpleClientProvider;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.channel.*;

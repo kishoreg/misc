@@ -1,13 +1,11 @@
-package com.example.spdy.client.handler;
+package com.example.spdy.client;
 
-import com.example.spdy.client.SimpleClientProvider;
+import com.example.spdy.npn.SimpleClientProvider;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.ssl.SslHandler;
-
-import java.util.concurrent.CountDownLatch;
 
 public class ResponseLoggingHandler extends SimpleChannelUpstreamHandler
 {
