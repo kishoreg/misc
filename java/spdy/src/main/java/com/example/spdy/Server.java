@@ -11,8 +11,9 @@ import java.util.concurrent.Executors;
 
 public class Server
 {
+  public static final int DEFAULT_PORT = 9000;
+
   private static final Logger LOG = Logger.getLogger(Server.class);
-  private static final int DEFAULT_PORT = 9000;
 
   public static void main(String[] args)
   {

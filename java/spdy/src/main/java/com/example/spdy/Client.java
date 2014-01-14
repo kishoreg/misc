@@ -21,7 +21,10 @@ public class Client
   {
     MiscUtils.configureConsole();
 
-    ClientBootstrap bootstrap = new ClientBootstrap(
+    String customPort = System.getProperty("port");
+    final int port = customPort == null ? Server.DEFAULT_PORT : Integer.parseInt(customPort);
+
+    final ClientBootstrap bootstrap = new ClientBootstrap(
             new NioClientSocketChannelFactory(
                     Executors.newCachedThreadPool(),
                     Executors.newCachedThreadPool()));
@@ -31,20 +34,30 @@ public class Client
 
     bootstrap.setPipelineFactory(new ClientPipelineFactory());
 
-    bootstrap.connect(new InetSocketAddress(9000)).addListener(new ChannelFutureListener()
+    bootstrap.connect(new InetSocketAddress(port)).addListener(new ChannelFutureListener()
     {
       @Override
       public void operationComplete(ChannelFuture future) throws Exception
       {
         if (future.isSuccess())
         {
-          LOG.info("Connected to localhost:9000");
+          LOG.info("Connected to localhost:" + port);
         }
         else
         {
-          LOG.error("Could not connect to localhost:9000");
+          LOG.error("Could not connect to localhost:" + port);
         }
       }
     });
+
+    Runtime.getRuntime().addShutdownHook(new Thread(new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        bootstrap.releaseExternalResources();
+        LOG.info("Shutdown client");
+      }
+    }));
   }
 }
