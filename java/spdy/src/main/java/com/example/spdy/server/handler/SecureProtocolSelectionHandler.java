@@ -30,7 +30,7 @@ public class SecureProtocolSelectionHandler implements ChannelUpstreamHandler
       pipeline.addLast("spdySessionHandler", new SpdySessionHandler(SpdyVersion.SPDY_3, true));
       pipeline.addLast("spdyHttpEncoder", new SpdyHttpEncoder(SpdyVersion.SPDY_3));
       pipeline.addLast("spdyHttpDecoder", new SpdyHttpDecoder(SpdyVersion.SPDY_3, 1024 * 1024));
-      pipeline.addLast("infoHandler", new InfoHandler());
+      pipeline.addLast("infoHandler", new HelloWorldHandler());
 
       pipeline.remove(this);
       ctx.sendUpstream(e);
@@ -43,7 +43,7 @@ public class SecureProtocolSelectionHandler implements ChannelUpstreamHandler
       pipeline.addLast("httpRequestDecoder", new HttpRequestDecoder());
       pipeline.addLast("httpChunkAggregator", new HttpChunkAggregator(1024 * 1024));
       pipeline.addLast("httpResponseEncoder", new HttpResponseEncoder());
-      pipeline.addLast("infoHandler", new InfoHandler());
+      pipeline.addLast("infoHandler", new HelloWorldHandler());
 
       pipeline.remove(this);
       ctx.sendUpstream(e);

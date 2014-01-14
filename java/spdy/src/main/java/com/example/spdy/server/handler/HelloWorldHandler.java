@@ -5,9 +5,9 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
 
-public class InfoHandler extends SimpleChannelUpstreamHandler
+public class HelloWorldHandler extends SimpleChannelUpstreamHandler
 {
-  private static final Logger LOG = Logger.getLogger(InfoHandler.class);
+  private static final Logger LOG = Logger.getLogger(HelloWorldHandler.class);
   private static final String SPDY_STREAM_ID = "X-SPDY-Stream-ID";
   private static final String SPDY_STREAM_PRIORITY = "X-SPDY-Stream-Priority";
 

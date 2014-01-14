@@ -49,7 +49,7 @@ public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandle
       pipeline.addLast("httpRequestDecoder", new HttpRequestDecoder());
       pipeline.addLast("httpChunkAggregator", new HttpChunkAggregator(1024 * 1024));
       pipeline.addLast("httpResponseEncoder", new HttpResponseEncoder());
-      pipeline.addLast("infoHandler", new InfoHandler());
+      pipeline.addLast("infoHandler", new HelloWorldHandler());
     }
     else
     {
