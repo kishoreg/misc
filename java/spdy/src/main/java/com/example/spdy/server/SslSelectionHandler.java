@@ -16,6 +16,20 @@ import javax.net.ssl.SSLEngine;
 
 public class SslSelectionHandler extends SimpleChannelUpstreamHandler
 {
+  private static final int MAX_HTTP_METHOD_LENGTH = 7;
+
+  private static final String[] HTTP_METHODS = {
+      "OPTIONS",
+      "GET",
+      "HEAD",
+      "POST",
+      "PUT",
+      "DELETE",
+      "TRACE",
+      "CONNECT",
+      "PATCH"
+  }; // TODO: More if necessary
+
   private final SSLContext _context;
 
   public SslSelectionHandler(SSLContext context)
@@ -28,22 +42,15 @@ public class SslSelectionHandler extends SimpleChannelUpstreamHandler
   {
     ChannelBuffer buf = (ChannelBuffer) e.getMessage();
 
-    // If the first couple bytes are printable, we use HTTP (SSL bytes will be non printable)
-    // Clearly there is a better way, but this works...
-    byte[] firstCoupleBytes = new byte[2];
-    buf.readBytes(firstCoupleBytes);
-    buf.resetReaderIndex();
-    boolean useHttp = Character.isLetter(firstCoupleBytes[0]) && Character.isLetter(firstCoupleBytes[1]);
-
     ChannelPipeline pipeline = ctx.getPipeline();
-    if (useHttp)
+    if (shouldUseHttp(buf))
     {
       pipeline.addLast("httpRequestDecoder", new HttpRequestDecoder());
       pipeline.addLast("httpChunkAggregator", new HttpChunkAggregator(1024 * 1024));
       pipeline.addLast("httpResponseEncoder", new HttpResponseEncoder());
       pipeline.addLast("infoHandler", new InfoHandler());
     }
-    else // is HTTPS or SPDY, set up SSL then negotiate
+    else
     {
       SSLEngine engine = _context.createSSLEngine();
       engine.setUseClientMode(false);
@@ -56,5 +63,23 @@ public class SslSelectionHandler extends SimpleChannelUpstreamHandler
 
     pipeline.remove(this);
     ctx.sendUpstream(e);
+  }
+
+  private static boolean shouldUseHttp(ChannelBuffer buf)
+  {
+    byte[] firstBytes = new byte[MAX_HTTP_METHOD_LENGTH];
+    buf.readBytes(firstBytes);
+    buf.resetReaderIndex();
+    String s = new String(firstBytes);
+
+    for (String method : HTTP_METHODS)
+    {
+      if (s.startsWith(method))
+      {
+        return true;
+      }
+    }
+
+    return false;
   }
 }
