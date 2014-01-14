@@ -59,7 +59,7 @@ public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandle
       NextProtoNego.debug = true;
 
       pipeline.addLast("sslHandler", new SslHandler(engine));
-      pipeline.addLast("protocolSelectionHandler", new SecureProtocolSelectionHandler());
+      pipeline.addLast("protocolSelectionHandler", new SecureServerProtocolSelectionHandler());
     }
 
     pipeline.remove(this);
