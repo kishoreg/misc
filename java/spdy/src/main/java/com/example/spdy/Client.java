@@ -13,11 +13,12 @@ import org.jboss.netty.handler.ssl.SslHandler;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * TODO: Description
+ * An asynchronous NPN-enabled HTTPS / SPDY client
  *
  * @author Greg Brandt (brandt.greg@gmail.com)
  */
@@ -42,73 +43,89 @@ public class Client
     _lock = new ReentrantLock();
   }
 
+  /**
+   * Executes an HTTP request asynchronously over a persistent connection.
+   *
+   * @param httpRequest
+   *  The HTTP request to execute
+   * @return
+   *  A future response
+   * @throws Exception
+   *  If there were any errors during execution
+   */
   public Future<HttpResponse> execute(HttpRequest httpRequest) throws Exception
   {
     // The channel
     Channel channel = getChannel();
 
     // The future
-    final CountDownLatch _latch = new CountDownLatch(1);
-    final AtomicReference<HttpResponse> _response = new AtomicReference<HttpResponse>();
-    final AtomicReference<Throwable> _error = new AtomicReference<Throwable>();
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicBoolean isCancelled = new AtomicBoolean(false);
+    final AtomicReference<HttpResponse> response = new AtomicReference<HttpResponse>();
+    final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
     final Future<HttpResponse> httpResponseFuture = new Future<HttpResponse>()
     {
       @Override
       public boolean cancel(boolean mayInterruptIfRunning)
       {
-        return false; // can't cancel?
+        error.set(new InterruptedException());
+        latch.countDown();
+        isCancelled.set(true);
+        return true;
       }
 
       @Override
       public boolean isCancelled()
       {
-        return false; // can't cancel?
+        return isCancelled.get();
       }
 
       @Override
       public boolean isDone()
       {
-        return _latch.getCount() == 0;
+        return latch.getCount() == 0;
       }
 
       @Override
       public HttpResponse get() throws InterruptedException, ExecutionException
       {
-        _latch.await();
-        if (_error.get() != null)
+        latch.await();
+        if (error.get() != null)
         {
-          throw new ExecutionException(_error.get());
+          throw new ExecutionException(error.get());
         }
-        return _response.get();
+        return response.get();
       }
 
       @Override
       public HttpResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
       {
-        _latch.await(timeout, unit);
-        if (_error.get() != null)
+        latch.await(timeout, unit);
+        if (error.get() != null)
         {
-          throw new ExecutionException(_error.get());
+          throw new ExecutionException(error.get());
         }
-        return _response.get();
+        return response.get();
       }
     };
 
-    // Fulfills the future
+    // Adds a handler to the pipeline
+    // TODO: Demux SPDY responses
+    // TODO: Ensure only one HTTPS connection writes to channel at a time
     channel.getPipeline().addLast("futureHandler", new SimpleChannelUpstreamHandler() {
       @Override
       public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception
       {
         HttpResponse httpResponse = (HttpResponse) e.getMessage();
-        _response.set(httpResponse);
-        _latch.countDown();
+        response.set(httpResponse);
+        latch.countDown();
       }
 
       @Override
       public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception
       {
-        _error.set(e.getCause());
-        _latch.countDown();
+        error.set(e.getCause());
+        latch.countDown();
       }
     });
 
@@ -142,6 +159,8 @@ public class Client
       _lock.unlock();
     }
   }
+
+  // TODO: Release channel method?
 
   private static class HandshakeListener implements ChannelFutureListener
   {
