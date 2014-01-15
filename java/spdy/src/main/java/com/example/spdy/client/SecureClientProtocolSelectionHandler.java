@@ -11,9 +11,18 @@ import org.jboss.netty.handler.codec.spdy.SpdySessionHandler;
 import org.jboss.netty.handler.codec.spdy.SpdyVersion;
 import org.jboss.netty.handler.ssl.SslHandler;
 
+import java.util.concurrent.CountDownLatch;
+
 public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamHandler
 {
   private static final Logger LOG = Logger.getLogger(SecureClientProtocolSelectionHandler.class);
+
+  private final CountDownLatch _finished;
+
+  public SecureClientProtocolSelectionHandler()
+  {
+    _finished = new CountDownLatch(1);
+  }
 
   @Override
   public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e) throws Exception
@@ -24,6 +33,7 @@ public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamH
     if ("spdy/3".equals(provider.getSelectedProtocol()))
     {
       LOG.info("Negotiated spdy/3");
+      _finished.countDown();
 
       ChannelPipeline pipeline = ctx.getPipeline();
       pipeline.addLast("spdyFrameCodec", new SpdyFrameCodec(SpdyVersion.SPDY_3));
@@ -36,6 +46,7 @@ public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamH
     else if ("http/1.1".equals(provider.getSelectedProtocol()))
     {
       LOG.info("Negotiated http/1.1");
+      _finished.countDown();
 
       ChannelPipeline pipeline = ctx.getPipeline();
       pipeline.addLast("httpCodec", new HttpClientCodec());
@@ -47,5 +58,10 @@ public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamH
     {
       LOG.info("Negotiating...");
     }
+  }
+
+  public void waitForNegotiation() throws InterruptedException
+  {
+    _finished.await();
   }
 }

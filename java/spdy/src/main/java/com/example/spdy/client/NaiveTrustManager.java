@@ -1,16 +1,22 @@
-package com.example.spdy.utils;
+package com.example.spdy.client;
 
 import javax.net.ssl.X509TrustManager;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
+/**
+ * An X509TrustManager that trusts anything
+ *
+ * @author Greg Brandt (brandt.greg@gmail.com)
+ */
 public class NaiveTrustManager implements X509TrustManager
 {
   private static final X509Certificate[] ACCEPTED_ISSUERS = new X509Certificate[0];
+  private static final NaiveTrustManager INSTANCE = new NaiveTrustManager();
+
+  // Singleton
 
   private NaiveTrustManager() {}
-
-  private static final NaiveTrustManager INSTANCE = new NaiveTrustManager();
 
   public static NaiveTrustManager getInstance() { return INSTANCE; }
 

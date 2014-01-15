@@ -1,7 +1,8 @@
 package com.example.spdy.client;
 
+import static com.example.spdy.Constants.SSL_PROTOCOL;
+
 import com.example.spdy.npn.SimpleClientProvider;
-import com.example.spdy.utils.NaiveTrustManager;
 import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -20,7 +21,7 @@ public class ClientPipelineFactory implements ChannelPipelineFactory
   {
     try
     {
-      _sslContext = SSLContext.getInstance("TLS");
+      _sslContext = SSLContext.getInstance(SSL_PROTOCOL);
       _sslContext.init(null, new TrustManager[] { NaiveTrustManager.getInstance() }, null);
     }
     catch (Exception e)
@@ -39,7 +40,6 @@ public class ClientPipelineFactory implements ChannelPipelineFactory
     NextProtoNego.debug = true;
 
     pipeline.addLast("ssl", new SslHandler(engine));
-    pipeline.addLast("handshakeHandler", new HandshakeHandler());
     pipeline.addLast("negotiationHandler", new SecureClientProtocolSelectionHandler());
 
     return pipeline;

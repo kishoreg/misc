@@ -1,0 +1,18 @@
+package com.example.spdy;
+
+/**
+ * Misc. constants
+ *
+ * @author Greg Brandt (brandt.greg@gmail.com)
+ */
+public final class Constants
+{
+  // Protocols
+  public static final String SPDY_3 = "spdy/3";
+  public static final String HTTP_1_1 = "http/1.1";
+  public static final String SSL_PROTOCOL = "TLS";
+
+  // Server
+  public static final String PROP_PORT = "port";
+  public static final int DEFAULT_SERVER_PORT = 9000;
+}

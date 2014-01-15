@@ -1,44 +1,12 @@
 package com.example.spdy.client;
 
-import com.example.spdy.npn.SimpleClientProvider;
 import org.apache.log4j.Logger;
-import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.ssl.SslHandler;
 
 public class ResponseLoggingHandler extends SimpleChannelUpstreamHandler
 {
   private static final Logger LOG = Logger.getLogger(ResponseLoggingHandler.class);
-
-  @Override
-  public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception
-  {
-    SslHandler sslHandler = ctx.getPipeline().get(SslHandler.class);
-    sslHandler.handshake().addListener(new ChannelFutureListener()
-    {
-      @Override
-      public void operationComplete(ChannelFuture future) throws Exception
-      {
-        if (future.isSuccess())
-        {
-          SslHandler h = future.getChannel().getPipeline().get(SslHandler.class);
-          SimpleClientProvider provider = (SimpleClientProvider) NextProtoNego.get(h.getEngine());
-
-          LOG.info("Handshake done. Negotiated protocol " + provider.getSelectedProtocol());
-
-          if (provider.getSelectedProtocol() == null)
-          {
-            provider.unsupported();
-          }
-        }
-        else
-        {
-          LOG.error("Failed to handshake");
-        }
-      }
-    });
-  }
 
   @Override
   public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception
@@ -55,6 +23,7 @@ public class ResponseLoggingHandler extends SimpleChannelUpstreamHandler
   @Override
   public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception
   {
+    Channels.close(ctx.getChannel());
     LOG.error(e);
   }
 }
