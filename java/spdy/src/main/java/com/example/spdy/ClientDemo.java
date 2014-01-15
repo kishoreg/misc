@@ -49,6 +49,8 @@ public class ClientDemo
       futures.add(client.execute(httpRequest));
     }
 
+    LOG.info("Done submitting requests, now waiting for futures...");
+
     // Print out response
     for (Future<HttpResponse> future : futures)
     {

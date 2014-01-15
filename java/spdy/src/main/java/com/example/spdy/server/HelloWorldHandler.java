@@ -21,7 +21,6 @@ public class HelloWorldHandler extends SimpleChannelUpstreamHandler
   {
     // Request
     HttpRequest httpRequest = (HttpRequest) e.getMessage();
-    LOG.info(httpRequest.getMethod() + " " + httpRequest.getUri());
 
     // Response
     DefaultHttpResponse httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
@@ -36,6 +35,8 @@ public class HelloWorldHandler extends SimpleChannelUpstreamHandler
       HttpHeaders.addHeader(httpResponse, SPDY_STREAM_ID, streamId);
       HttpHeaders.addHeader(httpResponse, SPDY_STREAM_PRIORITY, 0);
     }
+
+    LOG.info(httpRequest.getMethod() + " " + httpRequest.getUri() + " (streamId=" + streamId + ")");
 
     Channels.write(ctx.getChannel(), httpResponse);
   }
