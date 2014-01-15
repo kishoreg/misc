@@ -259,6 +259,7 @@ public class Client
       switch (getNegotiatedProtocol(ctx.getChannel()))
       {
         case SPDY:
+
           for (HttpResponseFuture future : _client._spdyFutures.values())
           {
             future.setError(e.getCause());
@@ -266,7 +267,9 @@ public class Client
           }
           _client._spdyFutures.clear();
           break;
+
         case HTTPS:
+
           Iterator<Map.Entry<Channel, HttpResponseFuture>> itr = _client._httpsFutures.iterator();
           while (itr.hasNext())
           {
@@ -275,6 +278,7 @@ public class Client
             future.complete();
           }
           // n.b. futures will be removed when channel close
+
       }
 
       _client.releaseChannel(ctx.getChannel());
