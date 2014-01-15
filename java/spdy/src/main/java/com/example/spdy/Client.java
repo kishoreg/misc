@@ -1,6 +1,8 @@
 package com.example.spdy;
 
 import com.example.spdy.client.ClientPipelineFactory;
+import com.example.spdy.client.HandshakeListener;
+import com.example.spdy.client.HttpResponseFuture;
 import com.example.spdy.npn.SimpleClientProvider;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.npn.NextProtoNego;
@@ -16,7 +18,6 @@ import java.net.URI;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -86,11 +87,11 @@ public class Client
    */
   public Future<HttpResponse> execute(HttpRequest httpRequest) throws Exception
   {
-    // The channel
     Channel channel = getChannel();
 
-    // The future
     final HttpResponseFuture future = new HttpResponseFuture();
+
+    // Record future in protocol-appropriate data structure
     switch (getNegotiatedProtocol(channel))
     {
       case SPDY:
@@ -106,18 +107,19 @@ public class Client
         break;
     }
 
-    // Execute
     channel.write(httpRequest);
 
     return future;
   }
 
+  /** Disconnects client */
   public void shutdown()
   {
     _clientBootstrap.releaseExternalResources();
     LOG.info("Shutdown client to " + _baseUri);
   }
 
+  /** @return A protocol-appropriate channel on which to write */
   private Channel getChannel() throws Exception
   {
     _lock.lock();
@@ -214,6 +216,7 @@ public class Client
     }
   }
 
+  /** Signals that this channel is done being used */
   private void releaseChannel(Channel channel) throws Exception
   {
     switch (getNegotiatedProtocol(channel))
@@ -226,119 +229,11 @@ public class Client
     }
   }
 
+  /** @return The NPN-negotiated protocol as an enum */
   private static Protocol getNegotiatedProtocol(Channel channel)
   {
     SSLEngine engine = channel.getPipeline().get(SslHandler.class).getEngine();
     SimpleClientProvider provider = (SimpleClientProvider) NextProtoNego.get(engine);
     return Protocol.fromNegotiated(provider.getSelectedProtocol());
-  }
-
-  /**
-   * Performs SSL handshake when channel is connected
-   */
-  private static class HandshakeListener implements ChannelFutureListener
-  {
-    private final AtomicReference<Channel> _channel;
-    private final CountDownLatch _connected;
-
-    HandshakeListener(AtomicReference<Channel> channel, CountDownLatch connected)
-    {
-      _channel = channel;
-      _connected = connected;
-    }
-
-    @Override
-    public void operationComplete(ChannelFuture future) throws Exception
-    {
-      if (future.isSuccess())
-      {
-        LOG.info("Connected to server");
-
-        // Do handshake
-        SslHandler sslHandler = future.getChannel().getPipeline().get(SslHandler.class);
-        sslHandler.handshake().addListener(new ChannelFutureListener()
-        {
-          @Override
-          public void operationComplete(ChannelFuture future) throws Exception
-          {
-            _channel.set(future.getChannel());
-            _connected.countDown();
-          }
-        });
-      }
-      else
-      {
-        LOG.error("Could not connect to server");
-      }
-    }
-  }
-
-  /**
-   * A future containing an HTTP response
-   */
-  private static class HttpResponseFuture implements Future<HttpResponse>
-  {
-    private final CountDownLatch _latch = new CountDownLatch(1);
-    private final AtomicBoolean _isCancelled = new AtomicBoolean(false);
-    private final AtomicReference<HttpResponse> _response = new AtomicReference<HttpResponse>();
-    private final AtomicReference<Throwable> _error = new AtomicReference<Throwable>();
-
-    @Override
-    public boolean cancel(boolean mayInterruptIfRunning)
-    {
-      _error.set(new InterruptedException());
-      _latch.countDown();
-      _isCancelled.set(true);
-      return true;
-    }
-
-    @Override
-    public boolean isCancelled()
-    {
-      return _isCancelled.get();
-    }
-
-    @Override
-    public boolean isDone()
-    {
-      return _latch.getCount() == 0;
-    }
-
-    @Override
-    public HttpResponse get() throws InterruptedException, ExecutionException
-    {
-      _latch.await();
-      if (_error.get() != null)
-      {
-        throw new ExecutionException(_error.get());
-      }
-      return _response.get();
-    }
-
-    @Override
-    public HttpResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
-    {
-      _latch.await(timeout, unit);
-      if (_error.get() != null)
-      {
-        throw new ExecutionException(_error.get());
-      }
-      return _response.get();
-    }
-
-    void setResponse(HttpResponse httpResponse)
-    {
-      _response.set(httpResponse);
-    }
-
-    void setError(Throwable error)
-    {
-      _error.set(error);
-    }
-
-    void complete()
-    {
-      _latch.countDown();
-    }
   }
 }
