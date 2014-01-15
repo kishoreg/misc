@@ -1,5 +1,7 @@
 package com.example.spdy.client;
 
+import static com.example.spdy.Constants.*;
+
 import com.example.spdy.npn.SimpleClientProvider;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.npn.NextProtoNego;
@@ -11,18 +13,14 @@ import org.jboss.netty.handler.codec.spdy.SpdySessionHandler;
 import org.jboss.netty.handler.codec.spdy.SpdyVersion;
 import org.jboss.netty.handler.ssl.SslHandler;
 
-import java.util.concurrent.CountDownLatch;
-
+/**
+ * Builds pipeline for the appropriate protocol after NPN
+ *
+ * @author Greg Brandt (brandt.greg@gmail.com)
+ */
 public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamHandler
 {
   private static final Logger LOG = Logger.getLogger(SecureClientProtocolSelectionHandler.class);
-
-  private final CountDownLatch _finished;
-
-  public SecureClientProtocolSelectionHandler()
-  {
-    _finished = new CountDownLatch(1);
-  }
 
   @Override
   public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e) throws Exception
@@ -30,10 +28,9 @@ public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamH
     SslHandler handler = ctx.getPipeline().get(SslHandler.class);
     SimpleClientProvider provider = (SimpleClientProvider) NextProtoNego.get(handler.getEngine());
 
-    if ("spdy/3".equals(provider.getSelectedProtocol()))
+    if (SPDY_3.equals(provider.getSelectedProtocol()))
     {
       LOG.info("Negotiated spdy/3");
-      _finished.countDown();
 
       ChannelPipeline pipeline = ctx.getPipeline();
       pipeline.addLast("spdyFrameCodec", new SpdyFrameCodec(SpdyVersion.SPDY_3));
@@ -43,10 +40,9 @@ public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamH
       pipeline.remove(this);
       ctx.sendUpstream(e);
     }
-    else if ("http/1.1".equals(provider.getSelectedProtocol()))
+    else if (HTTP_1_1.equals(provider.getSelectedProtocol()))
     {
       LOG.info("Negotiated http/1.1");
-      _finished.countDown();
 
       ChannelPipeline pipeline = ctx.getPipeline();
       pipeline.addLast("httpCodec", new HttpClientCodec());
@@ -58,10 +54,5 @@ public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamH
     {
       LOG.info("Negotiating...");
     }
-  }
-
-  public void waitForNegotiation() throws InterruptedException
-  {
-    _finished.await();
   }
 }

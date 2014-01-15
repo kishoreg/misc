@@ -1,15 +1,20 @@
 package com.example.spdy.server;
 
+import static com.example.spdy.Constants.*;
+
 import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
 
+/**
+ * A dummy handler that says "Hello, World!"
+ *
+ * @author Greg Brandt (brandt.greg@gmail.com)
+ */
 public class HelloWorldHandler extends SimpleChannelUpstreamHandler
 {
   private static final Logger LOG = Logger.getLogger(HelloWorldHandler.class);
-  private static final String SPDY_STREAM_ID = "X-SPDY-Stream-ID";
-  private static final String SPDY_STREAM_PRIORITY = "X-SPDY-Stream-Priority";
 
   @Override
   public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception
@@ -24,7 +29,7 @@ public class HelloWorldHandler extends SimpleChannelUpstreamHandler
     httpResponse.setContent(ChannelBuffers.wrappedBuffer(content));
     HttpHeaders.setContentLength(httpResponse, content.length);
 
-    // Spdy parts
+    // SPDY parts
     String streamId = HttpHeaders.getHeader(httpRequest, SPDY_STREAM_ID);
     if (streamId != null)
     {

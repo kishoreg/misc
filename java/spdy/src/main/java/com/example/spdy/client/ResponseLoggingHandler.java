@@ -4,6 +4,11 @@ import org.apache.log4j.Logger;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
+/**
+ * Dummy handler that just logs HTTP responses.
+ *
+ * @author Greg Brandt (brandt.greg@gmail.com)
+ */
 public class ResponseLoggingHandler extends SimpleChannelUpstreamHandler
 {
   private static final Logger LOG = Logger.getLogger(ResponseLoggingHandler.class);

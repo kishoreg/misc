@@ -1,5 +1,7 @@
 package com.example.spdy.server;
 
+import static com.example.spdy.Constants.*;
+
 import com.example.spdy.npn.SimpleServerProvider;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.npn.NextProtoNego;
@@ -10,6 +12,12 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import org.jboss.netty.handler.codec.spdy.*;
 import org.jboss.netty.handler.ssl.SslHandler;
 
+/**
+ * Builds the pipeline appropriately for an SSL-based protocol.
+ *
+ * @see com.example.spdy.server.InitialProtocolSelectionHandler
+ * @author Greg Brandt (brandt.greg@gmail.com)
+ */
 public class SecureServerProtocolSelectionHandler extends SimpleChannelUpstreamHandler
 {
   private static final Logger LOG = Logger.getLogger(SecureServerProtocolSelectionHandler.class);
@@ -20,7 +28,7 @@ public class SecureServerProtocolSelectionHandler extends SimpleChannelUpstreamH
     SslHandler handler = ctx.getPipeline().get(SslHandler.class);
     SimpleServerProvider provider = (SimpleServerProvider) NextProtoNego.get(handler.getEngine());
 
-    if ("spdy/3".equals(provider.getSelectedProtocol()))
+    if (SPDY_3.equals(provider.getSelectedProtocol()))
     {
       LOG.info("Chose spdy/3");
 
@@ -30,12 +38,12 @@ public class SecureServerProtocolSelectionHandler extends SimpleChannelUpstreamH
       pipeline.addLast("spdySessionHandler", new SpdySessionHandler(SpdyVersion.SPDY_3, true));
       pipeline.addLast("spdyHttpEncoder", new SpdyHttpEncoder(SpdyVersion.SPDY_3));
       pipeline.addLast("spdyHttpDecoder", new SpdyHttpDecoder(SpdyVersion.SPDY_3, 1024 * 1024));
-      pipeline.addLast("infoHandler", new HelloWorldHandler());
+      pipeline.addLast("helloWorldHandler", new HelloWorldHandler());
 
       pipeline.remove(this);
       ctx.sendUpstream(e);
     }
-    else if ("http/1.1".equals(provider.getSelectedProtocol()))
+    else if (HTTP_1_1.equals(provider.getSelectedProtocol()))
     {
       LOG.info("Chose http/1.1");
 
@@ -51,7 +59,6 @@ public class SecureServerProtocolSelectionHandler extends SimpleChannelUpstreamH
     else
     {
       LOG.info("Negotiating...");
-      // Still in protocol negotiation
     }
   }
 }

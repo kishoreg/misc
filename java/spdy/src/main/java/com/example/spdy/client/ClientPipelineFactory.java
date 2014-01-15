@@ -13,6 +13,11 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 
+/**
+ * Constructs the initial state of the pipeline, to be augmented after NPN
+ *
+ * @author Greg Brandt (brandt.greg@gmail.com)
+ */
 public class ClientPipelineFactory implements ChannelPipelineFactory
 {
   private final SSLContext _sslContext;
@@ -34,11 +39,15 @@ public class ClientPipelineFactory implements ChannelPipelineFactory
   {
     ChannelPipeline pipeline = Channels.pipeline();
 
+    // SSL
     SSLEngine engine = _sslContext.createSSLEngine();
     engine.setUseClientMode(true);
+
+    // NPN
     NextProtoNego.put(engine, new SimpleClientProvider());
     NextProtoNego.debug = true;
 
+    // Initial pipeline state (just SSL and NPN)
     pipeline.addLast("ssl", new SslHandler(engine));
     pipeline.addLast("negotiationHandler", new SecureClientProtocolSelectionHandler());
 

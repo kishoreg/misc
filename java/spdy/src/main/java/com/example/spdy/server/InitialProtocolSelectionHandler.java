@@ -15,10 +15,22 @@ import org.jboss.netty.handler.ssl.SslHandler;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
+/**
+ * Determines whether to use a plain-text- (i.e. HTTP), or SSL-based
+ * protocol (i.e. HTTPS, SPDY).
+ *
+ * If the first few readable bytes are ASCII, and match a declared HTTP method,
+ * we assume that the client is speaking HTTP.
+ *
+ * It will not be the case that the first bytes are printable characters if SSL used.
+ *
+ * Thanks for this nice little hack, Antony Curtis.
+ *
+ * @author Greg Brandt (brandt.greg@gmail.com)
+ */
 public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandler
 {
-  private static final int MAX_HTTP_METHOD_LENGTH = 7;
-
+  // Some HTTP methods
   private static final String[] HTTP_METHODS = {
       "OPTIONS",
       "GET",
@@ -30,6 +42,19 @@ public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandle
       "CONNECT",
       "PATCH"
   }; // TODO: More if necessary
+
+  // Figure out the longest HTTP method name
+  private static final int MAX_HTTP_METHOD_LENGTH;
+  static
+  {
+    int max = 0;
+    for (String method : HTTP_METHODS)
+    {
+      if (method.length() > max)
+        max = method.length();
+    }
+    MAX_HTTP_METHOD_LENGTH = max;
+  }
 
   private final SSLContext _context;
 
@@ -46,18 +71,23 @@ public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandle
     ChannelPipeline pipeline = ctx.getPipeline();
     if (shouldUseHttp(buf))
     {
+      // Simple HTTP processing pipeline
       pipeline.addLast("httpRequestDecoder", new HttpRequestDecoder());
       pipeline.addLast("httpChunkAggregator", new HttpChunkAggregator(1024 * 1024));
       pipeline.addLast("httpResponseEncoder", new HttpResponseEncoder());
-      pipeline.addLast("infoHandler", new HelloWorldHandler());
+      pipeline.addLast("helloWorldHandler", new HelloWorldHandler());
     }
     else
     {
+      // SSL
       SSLEngine engine = _context.createSSLEngine();
       engine.setUseClientMode(false);
+
+      // NPN
       NextProtoNego.put(engine, new SimpleServerProvider());
       NextProtoNego.debug = true;
 
+      // Initial pipeline state
       pipeline.addLast("sslHandler", new SslHandler(engine));
       pipeline.addLast("protocolSelectionHandler", new SecureServerProtocolSelectionHandler());
     }
@@ -66,6 +96,7 @@ public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandle
     ctx.sendUpstream(e);
   }
 
+  /** @return true if the first few bytes are an HTTP method in ASCII */
   private static boolean shouldUseHttp(ChannelBuffer buf)
   {
     byte[] firstBytes = new byte[MAX_HTTP_METHOD_LENGTH];
