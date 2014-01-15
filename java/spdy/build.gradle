@@ -9,13 +9,6 @@ dependencies {
     compile 'io.netty:netty:3.8.0.Final'
 }
 
-task server(type: JavaExec) {
-    println("Java home: " + org.gradle.internal.jvm.Jvm.current())
-    println("NPN JAR: ${rootDir}/libs/npn-boot-1.1.6.v20130911.jar")
-    main = 'com.example.spdy.Server'
-    classpath = sourceSets.main.runtimeClasspath
-}
-
 task fatJar(type: Jar) {
     from files(sourceSets.main.output.classesDir)
     from files(sourceSets.main.output.resourcesDir)
