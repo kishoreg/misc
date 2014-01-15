@@ -1,15 +1,16 @@
 package com.example.spdy;
 
 import com.example.spdy.client.ClientPipelineFactory;
-import org.apache.log4j.ConsoleAppender;
+import com.example.spdy.npn.SimpleClientProvider;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
+import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.handler.ssl.SslHandler;
 
+import javax.net.ssl.SSLEngine;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.concurrent.*;
@@ -25,25 +26,41 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Client
 {
   private static final Logger LOG = Logger.getLogger(Client.class);
+  private static final String HTTPS_STREAM_ID = "0";
 
   private enum Protocol
   {
     HTTPS,
     SPDY;
+
+    static Protocol fromNegotiated(String protocol)
+    {
+      if (Constants.SPDY_3.equals(protocol))
+      {
+        return SPDY;
+      }
+      else if (Constants.HTTP_1_1.equals(protocol))
+      {
+        return HTTPS;
+      }
+      else
+      {
+        throw new IllegalArgumentException("Unsupported protocol " + protocol);
+      }
+    }
   }
 
   private final URI _baseUri;
   private final InetSocketAddress _remoteAddress;
-  private final Protocol _protocol;
   private final ClientBootstrap _clientBootstrap;
   private final AtomicReference<Channel> _channel; // used for SPDY only
   private final ReentrantLock _lock;
+  private final ConcurrentMap<String, HttpResponseFuture> _futures;
 
   public Client(URI baseUri)
   {
     _baseUri = baseUri;
     _remoteAddress = new InetSocketAddress(_baseUri.getHost(), _baseUri.getPort());
-    _protocol = Protocol.valueOf(_baseUri.getScheme().toUpperCase());
     _clientBootstrap = new ClientBootstrap(
             new NioClientSocketChannelFactory(
                     Executors.newCachedThreadPool(),
@@ -51,6 +68,7 @@ public class Client
     _clientBootstrap.setPipelineFactory(new ClientPipelineFactory());
     _channel = new AtomicReference<Channel>();
     _lock = new ReentrantLock();
+    _futures = new ConcurrentHashMap<String, HttpResponseFuture>();
   }
 
   /**
@@ -70,29 +88,22 @@ public class Client
 
     // The future
     final HttpResponseFuture future = new HttpResponseFuture();
+    switch (getNegotiatedProtocol(channel))
+    {
+      case SPDY:
+        String streamId = HttpHeaders.getHeader(httpRequest, Constants.SPDY_STREAM_ID);
+        if (streamId == null)
+        {
+          throw new IllegalArgumentException("Must specify SPDY stream ID");
+        }
+        _futures.put(streamId, future);
+        break;
+      case HTTPS:
+        _futures.put(HTTPS_STREAM_ID, future);
+        break;
+    }
 
-    // Adds a handler to the pipeline
-    // TODO: Demux SPDY responses
-    // TODO: Ensure only one HTTPS connection writes to channel at a time
-    channel.getPipeline().addLast("futureHandler", new SimpleChannelUpstreamHandler() {
-      @Override
-      public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception
-      {
-        HttpResponse httpResponse = (HttpResponse) e.getMessage();
-        future.setResponse(httpResponse);
-        future.complete();
-        releaseChannel(ctx.getChannel());
-      }
-
-      @Override
-      public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception
-      {
-        future.setError(e.getCause());
-        future.complete();
-        releaseChannel(ctx.getChannel());
-      }
-    });
-
+    // Execute
     channel.write(httpRequest);
 
     return future;
@@ -110,19 +121,64 @@ public class Client
 
     try
     {
-      switch (_protocol)
+      Channel channel = null;
+
+      if (_channel.get() != null && _channel.get().isWritable())
       {
-        case SPDY:
-          if (_channel.get() != null && _channel.get().isWritable())
-          {
-            return _channel.get();
-          }
-        default:
-          CountDownLatch connected = new CountDownLatch(1);
-          _clientBootstrap.connect(_remoteAddress).addListener(new HandshakeListener(_channel, connected));
-          connected.await();
-          return _channel.get();
+        return _channel.get(); // short circuit if we're already connected
       }
+
+      CountDownLatch connected = new CountDownLatch(1);
+      _clientBootstrap.connect(_remoteAddress).addListener(new HandshakeListener(_channel, connected));
+      connected.await();
+      channel = _channel.get();
+
+      // Add a handler to fulfill the futures
+      channel.getPipeline().addLast("futureHandler", new SimpleChannelUpstreamHandler()
+      {
+        @Override
+        public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception
+        {
+          HttpResponse httpResponse = (HttpResponse) e.getMessage();
+
+          // Extract stream ID if present
+          String streamId = HttpHeaders.getHeader(httpResponse, Constants.SPDY_STREAM_ID);
+          if (streamId == null)
+          {
+            switch (getNegotiatedProtocol(ctx.getChannel()))
+            {
+              case SPDY:
+                throw new IllegalStateException("Stream ID not present in response");
+              case HTTPS:
+                streamId = HTTPS_STREAM_ID;
+            }
+          }
+
+          // Set future response
+          HttpResponseFuture future = _futures.get(streamId);
+          future.setResponse(httpResponse);
+          future.complete();
+
+          // Clean up resources
+          _futures.remove(streamId);
+          releaseChannel(ctx.getChannel());
+        }
+
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception
+        {
+          // Fail all
+          for (HttpResponseFuture future : _futures.values())
+          {
+            future.setError(e.getCause());
+            future.complete();
+          }
+          _futures.clear();
+          releaseChannel(ctx.getChannel());
+        }
+      });
+
+      return channel;
     }
     finally
     {
@@ -132,7 +188,7 @@ public class Client
 
   private void releaseChannel(Channel channel) throws Exception
   {
-    switch (_protocol)
+    switch (getNegotiatedProtocol(channel))
     {
       case HTTPS:
         Channels.close(channel);
@@ -140,6 +196,13 @@ public class Client
       default:
         // do nothing
     }
+  }
+
+  private static Protocol getNegotiatedProtocol(Channel channel)
+  {
+    SSLEngine engine = channel.getPipeline().get(SslHandler.class).getEngine();
+    SimpleClientProvider provider = (SimpleClientProvider) NextProtoNego.get(engine);
+    return Protocol.fromNegotiated(provider.getSelectedProtocol());
   }
 
   /**
@@ -170,7 +233,13 @@ public class Client
           @Override
           public void operationComplete(ChannelFuture future) throws Exception
           {
-            _channel.set(future.getChannel());
+            switch (getNegotiatedProtocol(future.getChannel()))
+            {
+              case SPDY:
+                _channel.set(future.getChannel());
+              default:
+                // don't persist connection
+            }
             _connected.countDown();
           }
         });
@@ -182,6 +251,9 @@ public class Client
     }
   }
 
+  /**
+   * A future containing an HTTP response
+   */
   private static class HttpResponseFuture implements Future<HttpResponse>
   {
     private final CountDownLatch _latch = new CountDownLatch(1);
@@ -246,26 +318,5 @@ public class Client
     {
       _latch.countDown();
     }
-  }
-
-  public static void main(String[] args) throws Exception
-  {
-    // Logger
-    ConsoleAppender console = new ConsoleAppender();
-    PatternLayout layout = new PatternLayout("%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n");
-    console.setLayout(layout);
-    console.activateOptions();
-    Logger.getRootLogger().addAppender(console);
-
-    Client client = new Client(URI.create("https://localhost:9000"));
-
-    HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
-    HttpHeaders.setHeader(request, Constants.SPDY_STREAM_ID, 1);
-    HttpHeaders.setHeader(request, HttpHeaders.Names.HOST, "localhost");
-
-    Future<HttpResponse> response = client.execute(request);
-    response.get();
-
-    LOG.info(response.get());
   }
 }
