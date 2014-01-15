@@ -1,7 +1,7 @@
 package com.example.spdy;
 
-import static com.example.spdy.Constants.DEFAULT_SERVER_PORT;
-import static com.example.spdy.Constants.PROP_PORT;
+import static com.example.spdy.api.Constants.DEFAULT_SERVER_PORT;
+import static com.example.spdy.api.Constants.PROP_PORT;
 
 import com.example.spdy.server.ServerPipelineFactory;
 import org.apache.log4j.ConsoleAppender;

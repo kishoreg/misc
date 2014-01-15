@@ -1,4 +1,4 @@
-package com.example.spdy;
+package com.example.spdy.api;
 
 /**
  * Misc. constants

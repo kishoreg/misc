@@ -1,6 +1,6 @@
 package com.example.spdy.npn;
 
-import static com.example.spdy.Constants.*;
+import static com.example.spdy.api.Constants.*;
 
 import org.eclipse.jetty.npn.NextProtoNego;
 

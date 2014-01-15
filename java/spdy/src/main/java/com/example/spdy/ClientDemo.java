@@ -1,6 +1,6 @@
 package com.example.spdy;
 
-import static com.example.spdy.Constants.*;
+import static com.example.spdy.api.Constants.*;
 
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Logger;

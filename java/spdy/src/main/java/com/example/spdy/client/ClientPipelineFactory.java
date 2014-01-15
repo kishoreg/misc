@@ -1,6 +1,6 @@
 package com.example.spdy.client;
 
-import static com.example.spdy.Constants.SSL_PROTOCOL;
+import static com.example.spdy.api.Constants.SSL_PROTOCOL;
 
 import com.example.spdy.npn.SimpleClientProvider;
 import org.eclipse.jetty.npn.NextProtoNego;

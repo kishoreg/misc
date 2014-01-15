@@ -1,5 +1,6 @@
 package com.example.spdy;
 
+import com.example.spdy.api.Constants;
 import com.example.spdy.client.ClientPipelineFactory;
 import com.example.spdy.client.HandshakeListener;
 import com.example.spdy.client.HttpResponseFuture;

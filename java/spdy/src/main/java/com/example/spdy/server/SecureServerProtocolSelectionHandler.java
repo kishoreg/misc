@@ -1,6 +1,6 @@
 package com.example.spdy.server;
 
-import static com.example.spdy.Constants.*;
+import static com.example.spdy.api.Constants.*;
 
 import com.example.spdy.npn.SimpleServerProvider;
 import org.apache.log4j.Logger;
