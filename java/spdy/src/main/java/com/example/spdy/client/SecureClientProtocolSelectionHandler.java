@@ -6,6 +6,7 @@ import com.example.spdy.npn.SimpleClientProvider;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.channel.*;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpClientCodec;
 import org.jboss.netty.handler.codec.spdy.SpdyFrameCodec;
 import org.jboss.netty.handler.codec.spdy.SpdyHttpCodec;
@@ -36,7 +37,7 @@ public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamH
       pipeline.addLast("spdyFrameCodec", new SpdyFrameCodec(SpdyVersion.SPDY_3));
       pipeline.addLast("spdySessionHandler", new SpdySessionHandler(SpdyVersion.SPDY_3, false));
       pipeline.addLast("spdyHttpCodec", new SpdyHttpCodec(SpdyVersion.SPDY_3, 1024 * 1024));
-      pipeline.addLast("responseLoggingHandler", new ResponseLoggingHandler());
+      pipeline.addLast("httpAggregator", new HttpChunkAggregator(1024 * 1024));
       pipeline.remove(this);
       ctx.sendUpstream(e);
     }
@@ -46,7 +47,7 @@ public class SecureClientProtocolSelectionHandler extends SimpleChannelUpstreamH
 
       ChannelPipeline pipeline = ctx.getPipeline();
       pipeline.addLast("httpCodec", new HttpClientCodec());
-      pipeline.addLast("responseLoggingHandler", new ResponseLoggingHandler());
+      pipeline.addLast("httpAggregator", new HttpChunkAggregator(1024 * 1024));
       pipeline.remove(this);
       ctx.sendUpstream(e);
     }

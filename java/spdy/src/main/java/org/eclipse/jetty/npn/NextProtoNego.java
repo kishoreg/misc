@@ -102,7 +102,7 @@ public class NextProtoNego
      */
     public static boolean debug = false;
 
-    private static Map<Object, Provider> objects = new ConcurrentHashMap<>();
+    private static Map<Object, Provider> objects = new ConcurrentHashMap<Object, Provider>();
 
     private NextProtoNego()
     {
