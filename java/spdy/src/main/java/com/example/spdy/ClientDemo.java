@@ -13,7 +13,9 @@ import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.handler.ssl.SslHandler;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A client that connects to a server and negotiates protocol via NPN
@@ -45,6 +47,8 @@ public class ClientDemo
     bootstrap.setPipelineFactory(new ClientPipelineFactory());
 
     // Connect to server
+    final CountDownLatch connected = new CountDownLatch(1);
+    final AtomicReference<Channel> channel = new AtomicReference<Channel>();
     bootstrap.connect(new InetSocketAddress(port)).addListener(new ChannelFutureListener()
     {
       @Override
@@ -61,12 +65,8 @@ public class ClientDemo
             @Override
             public void operationComplete(ChannelFuture future) throws Exception
             {
-              // Write request
-              LOG.info("Writing HTTP request");
-              HttpRequest httpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
-              HttpHeaders.setHeader(httpRequest, "X-SPDY-Stream-ID", 1);
-              HttpHeaders.setHeader(httpRequest, HttpHeaders.Names.HOST, "localhost");
-              future.getChannel().write(httpRequest);
+              channel.set(future.getChannel());
+              connected.countDown();
             }
           });
         }
@@ -76,6 +76,15 @@ public class ClientDemo
         }
       }
     });
+
+    connected.await();
+
+    // Write request
+    LOG.info("Writing HTTP request");
+    HttpRequest httpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
+    HttpHeaders.setHeader(httpRequest, "X-SPDY-Stream-ID", 1);
+    HttpHeaders.setHeader(httpRequest, HttpHeaders.Names.HOST, "localhost");
+    channel.get().write(httpRequest);
 
     // Add shutdown hook to release resources
     Runtime.getRuntime().addShutdownHook(new Thread(new Runnable()
