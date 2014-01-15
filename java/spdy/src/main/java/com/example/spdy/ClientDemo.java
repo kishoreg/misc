@@ -58,8 +58,7 @@ public class ClientDemo
       byte[] content = new byte[response.getContent().readableBytes()];
       response.getContent().readBytes(content);
       response.getContent().resetReaderIndex();
-      LOG.info(response.getStatus());
-      LOG.info(new String(content));
+      LOG.info(response.getStatus() + " => " + new String(content));
     }
 
     // We're done
