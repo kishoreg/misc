@@ -3,20 +3,18 @@
 To build and run (e.g. using JDK 1.7.0_45):
 
 ```
-$GRADLE_HOME/bin/gradle clean build fatJar
+# Build
+./bin/build.sh
 
 # Run the server
-$JAVA_HOME/bin/java \
-  -Xbootclasspath/p:`pwd`/libs/npn-boot-1.1.6.v20130911.jar \
-  -cp build/libs/spdy.jar \
-  com.example.spdy.Server
+./bin/server.sh
 
-# Run a client demo (make sure server running)
-$JAVA_HOME/bin/java \
-  -Xbootclasspath/p:`pwd`/libs/npn-boot-1.1.6.v20130911.jar \
-  -cp build/libs/spdy.jar \
-  com.example.spdy.ClientDemo
+# Run a client demo
+./bin/client-demo.sh
 ```
+
+You should look at the shell scripts to see the NPN JAR being added to the boot
+classpath, and make sure `$JAVA_HOME` is set to a 1.7.0_x Java.
 
 The NPN JAR added to the boot classpath has to be a specific version for the
 JDK version you're using:
