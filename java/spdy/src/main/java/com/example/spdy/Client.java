@@ -13,6 +13,8 @@ import org.jboss.netty.handler.ssl.SslHandler;
 import javax.net.ssl.SSLEngine;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,7 +28,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Client
 {
   private static final Logger LOG = Logger.getLogger(Client.class);
-  private static final String HTTPS_STREAM_ID = "0";
 
   private enum Protocol
   {
@@ -55,7 +56,8 @@ public class Client
   private final ClientBootstrap _clientBootstrap;
   private final AtomicReference<Channel> _channel; // used for SPDY only
   private final ReentrantLock _lock;
-  private final ConcurrentMap<String, HttpResponseFuture> _futures;
+  private final ConcurrentMap<String, HttpResponseFuture> _spdyFutures;
+  private final ChannelLocal<HttpResponseFuture> _httpsFutures;
 
   public Client(URI baseUri)
   {
@@ -68,7 +70,8 @@ public class Client
     _clientBootstrap.setPipelineFactory(new ClientPipelineFactory());
     _channel = new AtomicReference<Channel>();
     _lock = new ReentrantLock();
-    _futures = new ConcurrentHashMap<String, HttpResponseFuture>();
+    _spdyFutures = new ConcurrentHashMap<String, HttpResponseFuture>();
+    _httpsFutures = new ChannelLocal<HttpResponseFuture>(true);
   }
 
   /**
@@ -96,10 +99,10 @@ public class Client
         {
           throw new IllegalArgumentException("Must specify SPDY stream ID");
         }
-        _futures.put(streamId, future);
+        _spdyFutures.put(streamId, future);
         break;
       case HTTPS:
-        _futures.put(HTTPS_STREAM_ID, future);
+        _httpsFutures.setIfAbsent(channel, future);
         break;
     }
 
@@ -133,6 +136,13 @@ public class Client
       connected.await();
       channel = _channel.get();
 
+      switch (getNegotiatedProtocol(channel))
+      {
+        case HTTPS:
+          // immediately remove from reference so we can connect again
+          _channel.set(null);
+      }
+
       // Add a handler to fulfill the futures
       channel.getPipeline().addLast("futureHandler", new SimpleChannelUpstreamHandler()
       {
@@ -141,39 +151,57 @@ public class Client
         {
           HttpResponse httpResponse = (HttpResponse) e.getMessage();
 
-          // Extract stream ID if present
-          String streamId = HttpHeaders.getHeader(httpResponse, Constants.SPDY_STREAM_ID);
-          if (streamId == null)
+          switch (getNegotiatedProtocol(ctx.getChannel()))
           {
-            switch (getNegotiatedProtocol(ctx.getChannel()))
-            {
-              case SPDY:
+            case SPDY:
+
+              String streamId = HttpHeaders.getHeader(httpResponse, Constants.SPDY_STREAM_ID);
+              if (streamId == null)
+              {
                 throw new IllegalStateException("Stream ID not present in response");
-              case HTTPS:
-                streamId = HTTPS_STREAM_ID;
-            }
+              }
+
+              HttpResponseFuture spdyFuture = _spdyFutures.get(streamId);
+              spdyFuture.setResponse(httpResponse);
+              spdyFuture.complete();
+              _spdyFutures.remove(streamId);
+              break;
+
+            case HTTPS:
+
+              HttpResponseFuture httpsFuture = _httpsFutures.get(ctx.getChannel());
+              httpsFuture.setResponse(httpResponse);
+              httpsFuture.complete();
+              break;
           }
 
-          // Set future response
-          HttpResponseFuture future = _futures.get(streamId);
-          future.setResponse(httpResponse);
-          future.complete();
-
-          // Clean up resources
-          _futures.remove(streamId);
           releaseChannel(ctx.getChannel());
         }
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception
         {
-          // Fail all
-          for (HttpResponseFuture future : _futures.values())
+          switch (getNegotiatedProtocol(ctx.getChannel()))
           {
-            future.setError(e.getCause());
-            future.complete();
+            case SPDY:
+              for (HttpResponseFuture future : _spdyFutures.values())
+              {
+                future.setError(e.getCause());
+                future.complete();
+              }
+              _spdyFutures.clear();
+              break;
+            case HTTPS:
+              Iterator<Map.Entry<Channel, HttpResponseFuture>> itr = _httpsFutures.iterator();
+              while (itr.hasNext())
+              {
+                HttpResponseFuture future = itr.next().getValue();
+                future.setError(e.getCause());
+                future.complete();
+              }
+              // n.b. futures will be removed when channel close
           }
-          _futures.clear();
+
           releaseChannel(ctx.getChannel());
         }
       });
@@ -233,13 +261,7 @@ public class Client
           @Override
           public void operationComplete(ChannelFuture future) throws Exception
           {
-            switch (getNegotiatedProtocol(future.getChannel()))
-            {
-              case SPDY:
-                _channel.set(future.getChannel());
-              default:
-                // don't persist connection
-            }
+            _channel.set(future.getChannel());
             _connected.countDown();
           }
         });
