@@ -8,6 +8,8 @@ import org.apache.log4j.PatternLayout;
 import org.jboss.netty.handler.codec.http.*;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Future;
 
 /**
@@ -35,20 +37,28 @@ public class ClientDemo
     // Client
     final Client client = new Client(URI.create(String.format("https://localhost:%d", port)));
 
+    List<Future<HttpResponse>> futures = new ArrayList<Future<HttpResponse>>();
+
     // Write request
-    LOG.info("Writing HTTP request");
-    HttpRequest httpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
-    HttpHeaders.setHeader(httpRequest, "X-SPDY-Stream-ID", 1);
-    HttpHeaders.setHeader(httpRequest, HttpHeaders.Names.HOST, "localhost");
-    Future<HttpResponse> responseFuture = client.execute(httpRequest);
+    for (int i = 1; i <= 5; i += 2)
+    {
+      LOG.info("Writing HTTP request");
+      HttpRequest httpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
+      HttpHeaders.setHeader(httpRequest, "X-SPDY-Stream-ID", i);
+      HttpHeaders.setHeader(httpRequest, HttpHeaders.Names.HOST, "localhost");
+      futures.add(client.execute(httpRequest));
+    }
 
     // Print out response
-    HttpResponse response = responseFuture.get();
-    byte[] content = new byte[response.getContent().readableBytes()];
-    response.getContent().readBytes(content);
-    response.getContent().resetReaderIndex();
-    LOG.info(response.getStatus());
-    LOG.info(new String(content));
+    for (Future<HttpResponse> future : futures)
+    {
+      HttpResponse response = future.get();
+      byte[] content = new byte[response.getContent().readableBytes()];
+      response.getContent().readBytes(content);
+      response.getContent().resetReaderIndex();
+      LOG.info(response.getStatus());
+      LOG.info(new String(content));
+    }
 
     // We're done
     client.shutdown();

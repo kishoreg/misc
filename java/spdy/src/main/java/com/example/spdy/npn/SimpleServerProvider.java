@@ -28,6 +28,7 @@ public class SimpleServerProvider implements NextProtoNego.ServerProvider
   public List<String> protocols()
   {
     return Arrays.asList(SPDY_3, HTTP_1_1);
+//    return Arrays.asList(HTTP_1_1); // only HTTP
   }
 
   @Override
