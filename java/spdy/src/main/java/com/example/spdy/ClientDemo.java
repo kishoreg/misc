@@ -33,7 +33,7 @@ public class ClientDemo
     final int port = customPort == null ? DEFAULT_SERVER_PORT : Integer.parseInt(customPort);
 
     // Client
-    final Client client = new Client(URI.create(String.format("http://localhost:%d", port)));
+    final Client client = new Client(URI.create(String.format("https://localhost:%d", port)));
 
     // Write request
     LOG.info("Writing HTTP request");

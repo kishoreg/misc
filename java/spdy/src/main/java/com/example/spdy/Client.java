@@ -26,14 +26,24 @@ public class Client
 {
   private static final Logger LOG = Logger.getLogger(Client.class);
 
+  private enum Protocol
+  {
+    HTTPS,
+    SPDY;
+  }
+
   private final URI _baseUri;
+  private final InetSocketAddress _remoteAddress;
+  private final Protocol _protocol;
   private final ClientBootstrap _clientBootstrap;
-  private final AtomicReference<Channel> _channel;
+  private final AtomicReference<Channel> _channel; // used for SPDY only
   private final ReentrantLock _lock;
 
   public Client(URI baseUri)
   {
     _baseUri = baseUri;
+    _remoteAddress = new InetSocketAddress(_baseUri.getHost(), _baseUri.getPort());
+    _protocol = Protocol.valueOf(_baseUri.getScheme().toUpperCase());
     _clientBootstrap = new ClientBootstrap(
             new NioClientSocketChannelFactory(
                     Executors.newCachedThreadPool(),
@@ -59,55 +69,7 @@ public class Client
     Channel channel = getChannel();
 
     // The future
-    final CountDownLatch latch = new CountDownLatch(1);
-    final AtomicBoolean isCancelled = new AtomicBoolean(false);
-    final AtomicReference<HttpResponse> response = new AtomicReference<HttpResponse>();
-    final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
-    final Future<HttpResponse> httpResponseFuture = new Future<HttpResponse>()
-    {
-      @Override
-      public boolean cancel(boolean mayInterruptIfRunning)
-      {
-        error.set(new InterruptedException());
-        latch.countDown();
-        isCancelled.set(true);
-        return true;
-      }
-
-      @Override
-      public boolean isCancelled()
-      {
-        return isCancelled.get();
-      }
-
-      @Override
-      public boolean isDone()
-      {
-        return latch.getCount() == 0;
-      }
-
-      @Override
-      public HttpResponse get() throws InterruptedException, ExecutionException
-      {
-        latch.await();
-        if (error.get() != null)
-        {
-          throw new ExecutionException(error.get());
-        }
-        return response.get();
-      }
-
-      @Override
-      public HttpResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
-      {
-        latch.await(timeout, unit);
-        if (error.get() != null)
-        {
-          throw new ExecutionException(error.get());
-        }
-        return response.get();
-      }
-    };
+    final HttpResponseFuture future = new HttpResponseFuture();
 
     // Adds a handler to the pipeline
     // TODO: Demux SPDY responses
@@ -117,21 +79,23 @@ public class Client
       public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception
       {
         HttpResponse httpResponse = (HttpResponse) e.getMessage();
-        response.set(httpResponse);
-        latch.countDown();
+        future.setResponse(httpResponse);
+        future.complete();
+        releaseChannel(ctx.getChannel());
       }
 
       @Override
       public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception
       {
-        error.set(e.getCause());
-        latch.countDown();
+        future.setError(e.getCause());
+        future.complete();
+        releaseChannel(ctx.getChannel());
       }
     });
 
     channel.write(httpRequest);
 
-    return httpResponseFuture;
+    return future;
   }
 
   public void shutdown()
@@ -142,17 +106,23 @@ public class Client
 
   private Channel getChannel() throws Exception
   {
+    _lock.lock();
+
     try
     {
-      _lock.lock();
-      if (_channel.get() == null || !_channel.get().isWritable())
+      switch (_protocol)
       {
-        final CountDownLatch connected = new CountDownLatch(1);
-        _clientBootstrap.connect(new InetSocketAddress(_baseUri.getHost(), _baseUri.getPort()))
-                        .addListener(new HandshakeListener(_baseUri, _channel, connected));
-        connected.await();
+        case SPDY:
+          if (_channel.get() != null && _channel.get().isWritable())
+          {
+            return _channel.get();
+          }
+        default:
+          CountDownLatch connected = new CountDownLatch(1);
+          _clientBootstrap.connect(_remoteAddress).addListener(new HandshakeListener(_channel, connected));
+          connected.await();
+          return _channel.get();
       }
-      return _channel.get();
     }
     finally
     {
@@ -160,17 +130,28 @@ public class Client
     }
   }
 
-  // TODO: Release channel method?
+  private void releaseChannel(Channel channel) throws Exception
+  {
+    switch (_protocol)
+    {
+      case HTTPS:
+        Channels.close(channel);
+        break;
+      default:
+        // do nothing
+    }
+  }
 
+  /**
+   * Performs SSL handshake when channel is connected
+   */
   private static class HandshakeListener implements ChannelFutureListener
   {
-    private final URI _baseUri;
     private final AtomicReference<Channel> _channel;
     private final CountDownLatch _connected;
 
-    HandshakeListener(URI baseUri, AtomicReference<Channel> channel, CountDownLatch connected)
+    HandshakeListener(AtomicReference<Channel> channel, CountDownLatch connected)
     {
-      _baseUri = baseUri;
       _channel = channel;
       _connected = connected;
     }
@@ -180,7 +161,7 @@ public class Client
     {
       if (future.isSuccess())
       {
-        LOG.info("Connected to localhost:" + _baseUri.getPort());
+        LOG.info("Connected to server");
 
         // Do handshake
         SslHandler sslHandler = future.getChannel().getPipeline().get(SslHandler.class);
@@ -196,8 +177,74 @@ public class Client
       }
       else
       {
-        LOG.error("Could not connect to localhost:" + _baseUri.getPort());
+        LOG.error("Could not connect to server");
       }
+    }
+  }
+
+  private static class HttpResponseFuture implements Future<HttpResponse>
+  {
+    private final CountDownLatch _latch = new CountDownLatch(1);
+    private final AtomicBoolean _isCancelled = new AtomicBoolean(false);
+    private final AtomicReference<HttpResponse> _response = new AtomicReference<HttpResponse>();
+    private final AtomicReference<Throwable> _error = new AtomicReference<Throwable>();
+
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning)
+    {
+      _error.set(new InterruptedException());
+      _latch.countDown();
+      _isCancelled.set(true);
+      return true;
+    }
+
+    @Override
+    public boolean isCancelled()
+    {
+      return _isCancelled.get();
+    }
+
+    @Override
+    public boolean isDone()
+    {
+      return _latch.getCount() == 0;
+    }
+
+    @Override
+    public HttpResponse get() throws InterruptedException, ExecutionException
+    {
+      _latch.await();
+      if (_error.get() != null)
+      {
+        throw new ExecutionException(_error.get());
+      }
+      return _response.get();
+    }
+
+    @Override
+    public HttpResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
+    {
+      _latch.await(timeout, unit);
+      if (_error.get() != null)
+      {
+        throw new ExecutionException(_error.get());
+      }
+      return _response.get();
+    }
+
+    void setResponse(HttpResponse httpResponse)
+    {
+      _response.set(httpResponse);
+    }
+
+    void setError(Throwable error)
+    {
+      _error.set(error);
+    }
+
+    void complete()
+    {
+      _latch.countDown();
     }
   }
 
@@ -210,7 +257,7 @@ public class Client
     console.activateOptions();
     Logger.getRootLogger().addAppender(console);
 
-    Client client = new Client(URI.create("http://localhost:9000"));
+    Client client = new Client(URI.create("https://localhost:9000"));
 
     HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
     HttpHeaders.setHeader(request, Constants.SPDY_STREAM_ID, 1);
