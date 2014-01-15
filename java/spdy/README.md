@@ -35,4 +35,4 @@ NPN version     | OpenJDK version
 
 Table copied from [Jetty docs](http://www.eclipse.org/jetty/documentation/current/npn-chapter.html#npn-build)
 
-Example based on [jos.dirksen's article](http://www.smartjava.org/content/using-spdy-and-http-transparently-using-netty)
+Example based on [jos.dirksen's article](http://www.smartjava.org/content/using-spdy-and-http-transparently-using-netty) and code bits / help from @atcurtis
