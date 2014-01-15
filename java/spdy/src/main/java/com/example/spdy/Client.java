@@ -26,12 +26,19 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * An asynchronous NPN-enabled HTTPS / SPDY client
  *
+ * For SPDY, each stream must have a unique, monotonically increasing, and odd ID.
+ * Use {@link com.example.spdy.Client#getNextSpdyStreamId()} from a Client user perspective
+ * to generate a valid ID.
+ *
+ * There should be a unique stream ID per concurrent request.
+ *
  * @author Greg Brandt (brandt.greg@gmail.com)
  */
 public class Client
 {
   private static final Logger LOG = Logger.getLogger(Client.class);
 
+  /** The negotiated protocol */
   private enum Protocol
   {
     HTTPS,
@@ -54,29 +61,44 @@ public class Client
     }
   }
 
+  /** The base server URI */
   private final URI _baseUri;
+  /** The server address */
   private final InetSocketAddress _remoteAddress;
+  /** Generates client channels */
   private final ClientBootstrap _clientBootstrap;
-  private final AtomicReference<Channel> _channel; // used for SPDY only
+  /** A persistent channel (used for SPDY) */
+  private final AtomicReference<Channel> _channel;
+  /** Enforces mutual exclusion when manipulating this client's channel(s) */
   private final ReentrantLock _lock;
+  /** A mapping of SPDY stream ID to uncompleted future */
   private final ConcurrentMap<String, HttpResponseFuture> _spdyFutures;
+  /** A mapping of channel to uncompleted future (HTTPS uses many channels for concurrency) */
   private final ChannelLocal<HttpResponseFuture> _httpsFutures;
+  /** The next safe SPDY stream ID to use over _channel */
   private final AtomicInteger _nextSpdyStreamId;
 
   public Client(URI baseUri)
   {
+    // Address
     _baseUri = baseUri;
     _remoteAddress = new InetSocketAddress(_baseUri.getHost(), _baseUri.getPort());
+
+    // Netty
     _clientBootstrap = new ClientBootstrap(
             new NioClientSocketChannelFactory(
                     Executors.newCachedThreadPool(),
                     Executors.newCachedThreadPool()));
     _clientBootstrap.setPipelineFactory(new ClientPipelineFactory());
+
+    // Channel and futures
     _channel = new AtomicReference<Channel>();
-    _lock = new ReentrantLock();
     _spdyFutures = new ConcurrentHashMap<String, HttpResponseFuture>();
     _httpsFutures = new ChannelLocal<HttpResponseFuture>(true);
+
+    // Misc
     _nextSpdyStreamId = new AtomicInteger(1);
+    _lock = new ReentrantLock();
   }
 
   /**
@@ -239,7 +261,7 @@ public class Client
         Channels.close(channel);
         break;
       default:
-        // do nothing
+        // do nothing, SPDY can re-use channel
     }
   }
 
