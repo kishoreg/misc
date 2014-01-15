@@ -145,11 +145,7 @@ public class Client
     LOG.info("Shutdown client to " + _baseUri);
   }
 
-  /**
-   * @return
-   *  The next odd, monotonically increasing stream ID that can be safely
-   *  used on this Client's channel for SPDY
-   */
+  /** @return The next odd, monotonically increasing stream ID */
   public int getNextSpdyStreamId()
   {
     return _nextSpdyStreamId.getAndAdd(2);
@@ -164,11 +160,13 @@ public class Client
     {
       Channel channel = null;
 
+      // Short circuit if we're already connected
       if (_channel.get() != null && _channel.get().isWritable())
       {
-        return _channel.get(); // short circuit if we're already connected
+        return _channel.get();
       }
 
+      // Connect
       CountDownLatch connected = new CountDownLatch(1);
       _clientBootstrap.connect(_remoteAddress).addListener(new HandshakeListener(_channel, connected));
       connected.await();
@@ -181,68 +179,8 @@ public class Client
           _channel.set(null);
       }
 
-      // Add a handler to fulfill the futures
-      channel.getPipeline().addLast("futureHandler", new SimpleChannelUpstreamHandler()
-      {
-        @Override
-        public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception
-        {
-          HttpResponse httpResponse = (HttpResponse) e.getMessage();
-
-          switch (getNegotiatedProtocol(ctx.getChannel()))
-          {
-            case SPDY:
-
-              String streamId = HttpHeaders.getHeader(httpResponse, Constants.SPDY_STREAM_ID);
-              if (streamId == null)
-              {
-                throw new IllegalStateException("Stream ID not present in response");
-              }
-
-              HttpResponseFuture spdyFuture = _spdyFutures.get(streamId);
-              spdyFuture.setResponse(httpResponse);
-              spdyFuture.complete();
-              _spdyFutures.remove(streamId);
-              break;
-
-            case HTTPS:
-
-              HttpResponseFuture httpsFuture = _httpsFutures.get(ctx.getChannel());
-              httpsFuture.setResponse(httpResponse);
-              httpsFuture.complete();
-              break;
-          }
-
-          releaseChannel(ctx.getChannel());
-        }
-
-        @Override
-        public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception
-        {
-          switch (getNegotiatedProtocol(ctx.getChannel()))
-          {
-            case SPDY:
-              for (HttpResponseFuture future : _spdyFutures.values())
-              {
-                future.setError(e.getCause());
-                future.complete();
-              }
-              _spdyFutures.clear();
-              break;
-            case HTTPS:
-              Iterator<Map.Entry<Channel, HttpResponseFuture>> itr = _httpsFutures.iterator();
-              while (itr.hasNext())
-              {
-                HttpResponseFuture future = itr.next().getValue();
-                future.setError(e.getCause());
-                future.complete();
-              }
-              // n.b. futures will be removed when channel close
-          }
-
-          releaseChannel(ctx.getChannel());
-        }
-      });
+      // Add future handler
+      channel.getPipeline().addLast("futureHandler", new FutureHandler(this));
 
       return channel;
     }
@@ -271,5 +209,75 @@ public class Client
     SSLEngine engine = channel.getPipeline().get(SslHandler.class).getEngine();
     SimpleClientProvider provider = (SimpleClientProvider) NextProtoNego.get(engine);
     return Protocol.fromNegotiated(provider.getSelectedProtocol());
+  }
+
+  /** Completes a Client's futures */
+  private static class FutureHandler extends SimpleChannelUpstreamHandler
+  {
+    private final Client _client;
+
+    FutureHandler(Client client)
+    {
+      _client = client;
+    }
+
+    @Override
+    public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception
+    {
+      HttpResponse httpResponse = (HttpResponse) e.getMessage();
+
+      switch (getNegotiatedProtocol(ctx.getChannel()))
+      {
+        case SPDY:
+
+          String streamId = HttpHeaders.getHeader(httpResponse, Constants.SPDY_STREAM_ID);
+          if (streamId == null)
+          {
+            throw new IllegalStateException("Stream ID not present in response");
+          }
+
+          HttpResponseFuture spdyFuture = _client._spdyFutures.get(streamId);
+          spdyFuture.setResponse(httpResponse);
+          spdyFuture.complete();
+          _client._spdyFutures.remove(streamId);
+          break;
+
+        case HTTPS:
+
+          HttpResponseFuture httpsFuture = _client._httpsFutures.get(ctx.getChannel());
+          httpsFuture.setResponse(httpResponse);
+          httpsFuture.complete();
+          break;
+      }
+
+      _client.releaseChannel(ctx.getChannel());
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception
+    {
+      switch (getNegotiatedProtocol(ctx.getChannel()))
+      {
+        case SPDY:
+          for (HttpResponseFuture future : _client._spdyFutures.values())
+          {
+            future.setError(e.getCause());
+            future.complete();
+          }
+          _client._spdyFutures.clear();
+          break;
+        case HTTPS:
+          Iterator<Map.Entry<Channel, HttpResponseFuture>> itr = _client._httpsFutures.iterator();
+          while (itr.hasNext())
+          {
+            HttpResponseFuture future = itr.next().getValue();
+            future.setError(e.getCause());
+            future.complete();
+          }
+          // n.b. futures will be removed when channel close
+      }
+
+      _client.releaseChannel(ctx.getChannel());
+    }
   }
 }
