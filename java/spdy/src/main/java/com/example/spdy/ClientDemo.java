@@ -40,11 +40,11 @@ public class ClientDemo
     List<Future<HttpResponse>> futures = new ArrayList<Future<HttpResponse>>();
 
     // Write request
-    for (int i = 1; i <= 5; i += 2)
+    for (int i = 0; i < 10; i++)
     {
       LOG.info("Writing HTTP request");
       HttpRequest httpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
-      HttpHeaders.setHeader(httpRequest, "X-SPDY-Stream-ID", i);
+      HttpHeaders.setHeader(httpRequest, "X-SPDY-Stream-ID", client.getNextSpdyStreamId());
       HttpHeaders.setHeader(httpRequest, HttpHeaders.Names.HOST, "localhost");
       futures.add(client.execute(httpRequest));
     }

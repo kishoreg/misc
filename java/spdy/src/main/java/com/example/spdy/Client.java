@@ -19,6 +19,7 @@ import java.net.URI;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -60,6 +61,7 @@ public class Client
   private final ReentrantLock _lock;
   private final ConcurrentMap<String, HttpResponseFuture> _spdyFutures;
   private final ChannelLocal<HttpResponseFuture> _httpsFutures;
+  private final AtomicInteger _nextSpdyStreamId;
 
   public Client(URI baseUri)
   {
@@ -74,6 +76,7 @@ public class Client
     _lock = new ReentrantLock();
     _spdyFutures = new ConcurrentHashMap<String, HttpResponseFuture>();
     _httpsFutures = new ChannelLocal<HttpResponseFuture>(true);
+    _nextSpdyStreamId = new AtomicInteger(1);
   }
 
   /**
@@ -118,6 +121,16 @@ public class Client
   {
     _clientBootstrap.releaseExternalResources();
     LOG.info("Shutdown client to " + _baseUri);
+  }
+
+  /**
+   * @return
+   *  The next odd, monotonically increasing stream ID that can be safely
+   *  used on this Client's channel for SPDY
+   */
+  public int getNextSpdyStreamId()
+  {
+    return _nextSpdyStreamId.getAndAdd(2);
   }
 
   /** @return A protocol-appropriate channel on which to write */
