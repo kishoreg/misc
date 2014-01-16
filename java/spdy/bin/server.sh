@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Init
-source `pwd`/bin/setup.inc
+source `pwd`/bin/setup.sh
 
 # Run server
 $JAVA_HOME/bin/java \

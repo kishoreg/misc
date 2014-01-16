@@ -11,6 +11,9 @@ To build and run (e.g. using JDK 1.7.0_45):
 
 # Run a client demo
 ./bin/client-demo.sh
+
+# See if HTTPS works too
+curl -vk https://localhost:9000
 ```
 
 You should look at the shell scripts to see the NPN JAR being added to the boot

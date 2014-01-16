@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Init
-source `pwd`/bin/setup.inc
+source `pwd`/bin/setup.sh
 
 # Run client demo
 $JAVA_HOME/bin/java \
