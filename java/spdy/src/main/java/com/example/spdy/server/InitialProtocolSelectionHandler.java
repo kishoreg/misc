@@ -3,10 +3,7 @@ package com.example.spdy.server;
 import com.example.spdy.npn.SimpleServerProvider;
 import org.eclipse.jetty.npn.NextProtoNego;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
@@ -14,6 +11,7 @@ import org.jboss.netty.handler.ssl.SslHandler;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+import java.util.List;
 
 /**
  * Determines whether to use a plain-text- (i.e. HTTP), or SSL-based
@@ -57,10 +55,12 @@ public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandle
   }
 
   private final SSLContext _context;
+  private final List<ChannelHandler> _finalHandlers;
 
-  public InitialProtocolSelectionHandler(SSLContext context)
+  public InitialProtocolSelectionHandler(SSLContext context, List<ChannelHandler> finalHandlers)
   {
     _context = context;
+    _finalHandlers = finalHandlers;
   }
 
   @Override
@@ -75,7 +75,10 @@ public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandle
       pipeline.addLast("httpRequestDecoder", new HttpRequestDecoder());
       pipeline.addLast("httpChunkAggregator", new HttpChunkAggregator(1024 * 1024));
       pipeline.addLast("httpResponseEncoder", new HttpResponseEncoder());
-      pipeline.addLast("helloWorldHandler", new HelloWorldHandler());
+      for (ChannelHandler h : _finalHandlers)
+      {
+        pipeline.addLast(h.getClass().getSimpleName(), h);
+      }
     }
     else
     {
@@ -89,7 +92,7 @@ public class InitialProtocolSelectionHandler extends SimpleChannelUpstreamHandle
 
       // Initial pipeline state
       pipeline.addLast("sslHandler", new SslHandler(engine));
-      pipeline.addLast("protocolSelectionHandler", new SecureServerProtocolSelectionHandler());
+      pipeline.addLast("protocolSelectionHandler", new SecureServerProtocolSelectionHandler(_finalHandlers));
     }
 
     pipeline.remove(this);

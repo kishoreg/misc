@@ -12,6 +12,8 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import org.jboss.netty.handler.codec.spdy.*;
 import org.jboss.netty.handler.ssl.SslHandler;
 
+import java.util.List;
+
 /**
  * Builds the pipeline appropriately for an SSL-based protocol.
  *
@@ -21,6 +23,13 @@ import org.jboss.netty.handler.ssl.SslHandler;
 public class SecureServerProtocolSelectionHandler extends SimpleChannelUpstreamHandler
 {
   private static final Logger LOG = Logger.getLogger(SecureServerProtocolSelectionHandler.class);
+
+  private final List<ChannelHandler> _finalHandlers;
+
+  public SecureServerProtocolSelectionHandler(List<ChannelHandler> finalHandlers)
+  {
+    _finalHandlers = finalHandlers;
+  }
 
   @Override
   public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e) throws Exception
@@ -38,7 +47,10 @@ public class SecureServerProtocolSelectionHandler extends SimpleChannelUpstreamH
       pipeline.addLast("spdySessionHandler", new SpdySessionHandler(SpdyVersion.SPDY_3, true));
       pipeline.addLast("spdyHttpEncoder", new SpdyHttpEncoder(SpdyVersion.SPDY_3));
       pipeline.addLast("spdyHttpDecoder", new SpdyHttpDecoder(SpdyVersion.SPDY_3, 1024 * 1024));
-      pipeline.addLast("helloWorldHandler", new HelloWorldHandler());
+      for (ChannelHandler h : _finalHandlers)
+      {
+        pipeline.addLast(h.getClass().getSimpleName(), h);
+      }
 
       pipeline.remove(this);
       ctx.sendUpstream(e);
@@ -51,7 +63,10 @@ public class SecureServerProtocolSelectionHandler extends SimpleChannelUpstreamH
       pipeline.addLast("httpRequestDecoder", new HttpRequestDecoder());
       pipeline.addLast("httpChunkAggregator", new HttpChunkAggregator(1024 * 1024));
       pipeline.addLast("httpResponseEncoder", new HttpResponseEncoder());
-      pipeline.addLast("infoHandler", new HelloWorldHandler());
+      for (ChannelHandler h : _finalHandlers)
+      {
+        pipeline.addLast(h.getClass().getSimpleName(), h);
+      }
 
       pipeline.remove(this);
       ctx.sendUpstream(e);
